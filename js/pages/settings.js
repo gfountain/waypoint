@@ -314,7 +314,7 @@ async function addSectionItem(sectionId, label, inputEl) {
   const maxPos = existing.length ? Math.max(...existing.map(i=>i.position)) : -1;
   const varName = labelToVariableName(label);
   const { data: i } = await db.from('template_items').insert({ template_id:editingTemplate.id, group_id:sec?.group_id||null, section_id:sectionId, label, field_type:'checkbox', variable_name:varName, position:maxPos+1, is_important:false }).select().single();
-  if (i) { editingItems.push(i); if(inputEl) inputEl.value=''; const wrap=document.getElementById(`bsec-items-${sectionId}`); if(wrap){const div=document.createElement('div');div.innerHTML=renderItemEditor(i);wrap.appendChild(div.firstElementChild);bindEditorEvents(document.getElementById('settings-content'));} }
+  if (i) { editingItems.push(i); if(inputEl) inputEl.value=''; renderEditorView(); }
 }
 
 async function addSubItem(itemId, label, inputEl) {
@@ -322,7 +322,7 @@ async function addSubItem(itemId, label, inputEl) {
   const maxPos = existing.length ? Math.max(...existing.map(s=>s.position)) : -1;
   const varName = labelToVariableName(label);
   const { data: s } = await db.from('template_sub_items').insert({ template_id:editingTemplate.id, item_id:itemId, label, field_type:'checkbox', variable_name:varName, position:maxPos+1, is_important:false }).select().single();
-  if (s) { editingSubItems.push(s); if(inputEl) inputEl.value=''; const wrap=document.getElementById(`bsubs-${itemId}`); if(wrap){const div=document.createElement('div');div.innerHTML=renderSubEditor(s);wrap.appendChild(div.firstElementChild);bindEditorEvents(document.getElementById('settings-content'));} }
+  if (s) { editingSubItems.push(s); if(inputEl) inputEl.value=''; renderEditorView(); }
 }
 
 async function deleteItem(id) {
