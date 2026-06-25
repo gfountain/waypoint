@@ -278,6 +278,9 @@ function renderItem(item, subs, varMap, hidden) {
       </div>
     </div>
     <div class="item-actions">
+      <button class="btn-icon" title="${item.is_important?'Remove important flag':'Mark as important'}" data-flag-item="${item.id}" style="color:${item.is_important?'var(--coral)':'var(--muted)'}">
+        <svg width="12" height="12" fill="${item.is_important?'var(--coral)':'none'}" stroke="${item.is_important?'var(--coral)':'currentColor'}" stroke-width="2" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      </button>
       <button class="btn-icon" title="Skip/N/A" data-skip-btn="${item.id}"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
       <button class="btn-icon" title="Edit" data-edit-item="${item.id}"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
       <button class="btn-icon" style="color:var(--coral)" title="Delete" data-delete-item="${item.id}"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>
@@ -385,6 +388,7 @@ function bindChecklistEvents(wrap) {
   // Item state buttons
   wrap.querySelectorAll('[data-state-btn]').forEach(btn => btn.addEventListener('click', () => toggleItemState(btn.dataset.stateBtn)));
   wrap.querySelectorAll('[data-skip-btn]').forEach(btn => btn.addEventListener('click', () => skipItem(btn.dataset.skipBtn)));
+  wrap.querySelectorAll('[data-flag-item]').forEach(btn => btn.addEventListener('click', e => { e.stopPropagation(); toggleImportant(btn.dataset.flagItem); }));
   wrap.querySelectorAll('[data-edit-item]').forEach(btn => btn.addEventListener('click', e => { e.stopPropagation(); openEditItemModal(btn.dataset.editItem); }));
   wrap.querySelectorAll('[data-delete-item]').forEach(btn => btn.addEventListener('click', e => { e.stopPropagation(); deleteItem(btn.dataset.deleteItem); }));
 
@@ -464,6 +468,16 @@ function bindChecklistEvents(wrap) {
 }
 
 // ── ITEM STATE ────────────────────────────────────────────────
+async function toggleImportant(itemId) {
+  const item = allItems.find(i => i.id===itemId);
+  if (!item) return;
+  const newVal = !item.is_important;
+  await db.from('family_items').update({ is_important: newVal }).eq('id', itemId);
+  item.is_important = newVal;
+  renderChecklist();
+  updateSidebarProgress();
+}
+
 async function toggleItemState(itemId) {
   const item = allItems.find(i => i.id===itemId);
   if (!item) return;

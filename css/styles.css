@@ -357,9 +357,7 @@ textarea { resize: vertical; }
 .item-due.upcoming { background: var(--surface); color: var(--muted); }
 .item-adhoc-label { font-size: .68rem; color: var(--violet); background: var(--violet-lt); padding: 1px 5px; border-radius: 6px; }
 .item-cond-indicator { font-size: .68rem; color: var(--muted); }
-.item-actions { display: flex; gap: 2px; flex-shrink: 0; opacity: 0; transition: opacity .15s; }
-.checklist-item:hover .item-actions,
-.sub-item:hover .item-actions { opacity: 1; }
+.item-actions { display: flex; gap: 2px; flex-shrink: 0; opacity: 1; }
 
 .add-item-row { display: flex; align-items: center; gap: 6px; padding: 6px 14px; border-top: 1px solid var(--border); background: var(--surface); }
 .add-item-input { flex: 1; padding: 4px 8px; border: 1px solid var(--border-dk); border-radius: var(--radius); font-size: .78rem; background: var(--white); }
