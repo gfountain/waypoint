@@ -52,11 +52,7 @@ async function fetchDueItems() {
   // Get due items
   const { data: items } = await db
     .from('family_items')
-    .select(`
-      id, label, due_date, is_important, item_state,
-      family_id,
-      family_sections!inner(family_id)
-    `)
+    .select('id, label, due_date, is_important, item_state, family_id')
     .eq('item_state', 'incomplete')
     .not('due_date', 'is', null)
     .lte('due_date', cutoffStr)

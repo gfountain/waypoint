@@ -24,7 +24,8 @@ export function calcProgress(items) {
 
 // Get next incomplete item across all items in order
 export function getNextIncompleteItem(items) {
-  return items.find(i => i.item_state === 'incomplete') || null;
+  const sorted = [...items].sort((a, b) => (a.position || 0) - (b.position || 0));
+  return sorted.find(i => i.item_state === 'incomplete') || null;
 }
 
 // Get important incomplete items, capped at 3 with overflow count

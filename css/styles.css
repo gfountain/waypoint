@@ -550,3 +550,10 @@ textarea { resize: vertical; }
 .session-warning-icon { font-size: 1.4rem; }
 .session-warning-text strong { display: block; color: var(--amber-dk); margin-bottom: 2px; }
 @media (max-width: 600px) { #sidebar { display: none; } #sidebar.open { display: flex; position: fixed; inset: 0; z-index: 200; width: 240px; } #topbar .mobile-menu-btn { display: block; } }
+
+/* ─── MISSING CLASSES ────────────────────────────────────────── */
+.stab { transition: color .15s, border-color .15s; }
+.quick-note-area { margin-top: 6px; }
+.quick-note-submit { cursor: pointer; }
+.color-coral { color: var(--coral-dk); }
+.color-amber { color: var(--amber-dk); }

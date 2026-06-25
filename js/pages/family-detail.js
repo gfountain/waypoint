@@ -6,8 +6,7 @@ import { toast } from '../components/toast.js';
 import { escHtml, calcProgress, parseFieldValue, buildFieldValue, formatPhone, allSubItemsDone, formatCurrency } from '../utils/helpers.js';
 import { formatDate, formatActivityTime, getDueStatus, getDueLabel, calcFutureDueDate } from '../utils/dates.js';
 import { evaluateLogic, buildVariableMap } from '../utils/conditional-engine.js';
-import { resolveItemText } from '../utils/variable-resolver.js';
-import { labelToVariableName } from '../utils/variable-resolver.js';
+import { resolveItemText, labelToVariableName } from '../utils/variable-resolver.js';
 import { getCurrentUser } from '../auth.js';
 import { refreshNotifications } from '../notifications.js';
 import { fetchActivityLog, logItemComplete, logItemUncomplete, logItemSkipped, logItemUnskipped,
@@ -15,13 +14,14 @@ import { fetchActivityLog, logItemComplete, logItemUncomplete, logItemSkipped, l
          logStatusChanged, logNotesEdited, logSectionAdded, logItemAdded, logSubItemAdded,
          logContactAdded, logReminderAdded, logReminderDismissed, logParentAutoComplete } from '../activity-log.js';
 
-let currentFamily = null, currentUser = null;
+let currentFamily = null, currentUser = null, pageContainer = null;
 let allGroups = [], allSections = [], allItems = [], allSubItems = [], allContacts = [], allReminders = [];
 let showCompleted = {}, showSkipped = {};
 
 export async function renderFamilyDetail(params, container) {
   const familyId = params?.id;
   if (!familyId) { navigate('families'); return; }
+  pageContainer = container;
   container.innerHTML = `<div class="loading-state">Loading case…</div>`;
   try {
     currentUser = await getCurrentUser();
@@ -696,7 +696,7 @@ async function changeStatus(newStatus) {
       await db.from('families').update({ status:'long_term', long_term_reason:reason }).eq('id', currentFamily.id);
       currentFamily.status='long_term'; currentFamily.long_term_reason=reason;
       await logStatusChanged(currentFamily.id, currentUser.id, old, 'long_term');
-      closeModal(); renderPage(document.getElementById('page-family-detail'));
+      closeModal(); renderPage(pageContainer || document.getElementById('page-family-detail'));
     });
     return;
   }
@@ -704,7 +704,7 @@ async function changeStatus(newStatus) {
   currentFamily.status = newStatus;
   await logStatusChanged(currentFamily.id, currentUser.id, old, newStatus);
   toast(`Status updated`, 'success');
-  renderPage(document.getElementById('page-family-detail'));
+  renderPage(pageContainer || document.getElementById('page-family-detail'));
 }
 
 // ── NOTES EDITOR ──────────────────────────────────────────────
@@ -763,7 +763,7 @@ function openEditFamilyModal() {
     await db.from('families').update(updates).eq('id', f.id);
     Object.assign(currentFamily, updates);
     closeModal(); toast('Family info updated', 'success');
-    renderPage(document.getElementById('page-family-detail'));
+    renderPage(pageContainer || document.getElementById('page-family-detail'));
   });
 }
 

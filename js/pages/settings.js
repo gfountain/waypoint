@@ -330,14 +330,13 @@ async function deleteItem(id) {
   await db.from('template_items').delete().eq('id', id);
   editingItems=editingItems.filter(i=>i.id!==id);
   editingSubItems=editingSubItems.filter(s=>s.item_id!==id);
-  document.getElementById(`bitem-${id}`)?.remove();
-  document.getElementById(`bsubs-${id}`)?.remove();
+  renderEditorView();
 }
 
 async function deleteSub(id) {
   await db.from('template_sub_items').delete().eq('id', id);
   editingSubItems=editingSubItems.filter(s=>s.id!==id);
-  document.getElementById(`bsub-${id}`)?.remove();
+  renderEditorView();
 }
 
 // ── ITEM SETTINGS MODAL ───────────────────────────────────────
