@@ -582,3 +582,23 @@ textarea { resize: vertical; }
   .theme-grid { grid-template-columns: repeat(2, 1fr); }
   #fab-new-family { bottom: 20px; right: 20px; width: 48px; height: 48px; }
 }
+
+/* ─── CATEGORY TOGGLE ────────────────────────────────────────── */
+.category-toggle { display: flex; gap: 8px; margin-bottom: 16px; }
+.category-btn { display: flex; align-items: center; gap: 8px; padding: 9px 18px; border-radius: var(--radius-lg); border: 2px solid var(--border-dk); background: var(--white); font-size: .85rem; font-weight: 500; cursor: pointer; color: var(--slate); transition: all .15s; }
+.category-btn:hover { border-color: var(--primary); color: var(--primary-dk); }
+.category-btn.active { background: var(--primary); border-color: var(--primary); color: var(--primary-text); }
+.cat-count { font-size: .75rem; background: rgba(0,0,0,.1); padding: 1px 7px; border-radius: 10px; }
+.category-btn.active .cat-count { background: rgba(255,255,255,.25); }
+
+/* ─── LOST BADGE ─────────────────────────────────────────────── */
+.badge-lost { background: var(--coral-lt); color: var(--coral-dk); }
+
+/* ─── CLOSED LIST VIEW ───────────────────────────────────────── */
+.closed-list { background: var(--white); border-radius: var(--radius-lg); border: 1px solid var(--border); overflow: hidden; }
+.closed-list-header { display: grid; grid-template-columns: 2fr 1fr 1.2fr 1.2fr 1fr 1.2fr; gap: 12px; padding: 10px 16px; background: var(--surface); border-bottom: 1px solid var(--border); font-size: .72rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.closed-list-row { display: grid; grid-template-columns: 2fr 1fr 1.2fr 1.2fr 1fr 1.2fr; gap: 12px; padding: 11px 16px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background .15s; align-items: center; font-size: .82rem; }
+.closed-list-row:last-child { border-bottom: none; }
+.closed-list-row:hover { background: var(--surface); }
+.cl-dec-name { font-weight: 600; color: var(--navy); }
+.cl-lost-reason { font-size: .72rem; color: var(--muted); margin-top: 2px; font-style: italic; }

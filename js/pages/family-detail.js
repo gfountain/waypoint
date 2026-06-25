@@ -57,7 +57,8 @@ function renderPage(container) {
   const prog = calcProgress(allItems);
   const primary = allContacts.find(c => c.is_primary)||allContacts[0];
   const veteranBadge = f.is_veteran ? `<span class="veteran-badge veteran" style="padding:3px 10px;font-size:.8rem">🎖 Veteran</span>` : f.is_veteran_spouse ? `<span class="veteran-badge veteran-spouse" style="padding:3px 10px;font-size:.8rem">⭐ Spouse of Veteran</span>` : '';
-  const statusBadgeMap = { active:`<span class="badge badge-active">Active</span>`, long_term:`<span class="badge badge-longterm">Long Term</span>`, completed:`<span class="badge badge-completed">Completed</span>` };
+  const lostBadge = currentFamily.is_lost ? `<span class="badge badge-lost">⊘ Lost</span>` : '';
+  const statusBadgeMap = { active:`<span class="badge badge-active">Active</span>`, long_term:`<span class="badge badge-longterm">Long Term</span>`, completed: currentFamily.is_lost ? lostBadge : `<span class="badge badge-completed">✓ Completed</span>` };
 
   document.getElementById('topbar-title').textContent = `${f.decedent_last_name}, ${f.decedent_first_name}`;
   document.getElementById('topbar-actions').innerHTML = `<button class="btn btn-ghost btn-sm" id="btn-edit-family">Edit Info</button>`;
@@ -77,7 +78,8 @@ function renderPage(container) {
         <div class="detail-header-actions">
           <button class="btn btn-ghost btn-sm" id="btn-active" ${f.status==='active'?'disabled':''} style="color:white;border-color:rgba(255,255,255,.4)">Active</button>
           <button class="btn btn-ghost btn-sm" id="btn-longterm" ${f.status==='long_term'?'disabled':''} style="color:white;border-color:rgba(255,255,255,.4)">Long Term</button>
-          <button class="btn btn-emerald btn-sm" id="btn-completed" ${f.status==='completed'?'disabled':''}>✓ Completed</button>
+          <button class="btn btn-emerald btn-sm" id="btn-completed" ${f.status==='completed'&&!f.is_lost?'disabled':''}>✓ Completed</button>
+          <button class="btn btn-sm" id="btn-lost" style="background:var(--coral);color:white;border-color:var(--coral)" ${f.is_lost?'disabled':''}>⊘ Lost</button>
         </div>
       </div>
       <div class="detail-meta-row">${statusBadgeMap[f.status]||''}${veteranBadge}${f.long_term_reason?`<span style="font-size:.78rem;color:rgba(255,255,255,.7);font-style:italic">${escHtml(f.long_term_reason)}</span>`:''}</div>
@@ -102,6 +104,7 @@ function renderPage(container) {
 
   document.getElementById('detail-back')?.addEventListener('click', () => navigate('families'));
   document.getElementById('btn-active')?.addEventListener('click', () => changeStatus('active'));
+  document.getElementById('btn-lost')?.addEventListener('click', () => markAsLost());
   document.getElementById('btn-longterm')?.addEventListener('click', () => changeStatus('long_term'));
   document.getElementById('btn-completed')?.addEventListener('click', () => changeStatus('completed'));
   document.getElementById('btn-edit-notes')?.addEventListener('click', openNotesEditor);
@@ -705,6 +708,50 @@ async function changeStatus(newStatus) {
   await logStatusChanged(currentFamily.id, currentUser.id, old, newStatus);
   toast(`Status updated`, 'success');
   renderPage(pageContainer || document.getElementById('page-family-detail'));
+}
+
+// ── MARK AS LOST ─────────────────────────────────────────────
+async function markAsLost() {
+  openModal({ title:'Mark as Lost', size:'sm', body:`
+    <p style="font-size:.82rem;color:var(--muted);margin-bottom:14px">This case will be moved to Completed and marked as lost.</p>
+    <div class="form-group"><label class="form-label">Reason for Loss *</label>
+      <select class="form-select" id="lost-reason-select">
+        <option value="">— Select a reason —</option>
+        <option value="Chose another funeral home">Chose another funeral home</option>
+        <option value="Price / cost concerns">Price / cost concerns</option>
+        <option value="Family changed plans">Family changed plans</option>
+        <option value="Pre-arrangement cancelled">Pre-arrangement cancelled</option>
+        <option value="Other">Other</option>
+      </select>
+    </div>
+    <div class="form-group" id="lost-other-group" style="display:none">
+      <label class="form-label">Specify reason</label>
+      <input class="form-input" id="lost-other-input" placeholder="Enter reason…">
+    </div>`,
+    footer:`<button class="btn btn-ghost" id="lost-cancel">Cancel</button><button class="btn btn-danger" id="lost-confirm">Mark as Lost</button>`
+  });
+  document.getElementById('lost-cancel')?.addEventListener('click', closeModal);
+  document.getElementById('lost-reason-select')?.addEventListener('change', e => {
+    document.getElementById('lost-other-group').style.display = e.target.value==='Other' ? 'block' : 'none';
+  });
+  document.getElementById('lost-confirm')?.addEventListener('click', async () => {
+    const select = document.getElementById('lost-reason-select');
+    let reason = select?.value;
+    if (!reason) { toast('Please select a reason', 'error'); return; }
+    if (reason === 'Other') {
+      reason = document.getElementById('lost-other-input')?.value.trim();
+      if (!reason) { toast('Please specify the reason', 'error'); return; }
+    }
+    const oldStatus = currentFamily.status;
+    await db.from('families').update({ status:'completed', is_lost:true, lost_reason:reason }).eq('id', currentFamily.id);
+    currentFamily.status = 'completed';
+    currentFamily.is_lost = true;
+    currentFamily.lost_reason = reason;
+    await logStatusChanged(currentFamily.id, currentUser.id, oldStatus, 'lost');
+    closeModal();
+    toast('Case marked as lost', 'success');
+    renderPage(pageContainer || document.getElementById('page-family-detail'));
+  });
 }
 
 // ── NOTES EDITOR ──────────────────────────────────────────────
