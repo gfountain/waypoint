@@ -36,9 +36,7 @@ textarea { resize: vertical; }
 .session-warning-msg { font-size: .82rem; color: var(--amber-dk); margin-bottom: 10px; }
 
 /* ─── APP SHELL ───────────────────────────────────────────── */
-#app { display: none; height: 100vh; flex-direction: column; }
-#app:not(.hidden) { display: flex; }
-#app.visible { display: flex; }
+/* #app layout handled below */
 .topbar { display: flex; align-items: center; gap: 12px; padding: 0 16px; height: 52px; background: var(--white); border-bottom: 1px solid var(--border); flex-shrink: 0; z-index: 100; }
 .topbar-logo { font-family: var(--font-serif); font-size: 1.1rem; color: var(--teal-dk); font-weight: bold; }
 .topbar-title { font-size: .85rem; color: var(--muted); flex: 1; }
@@ -507,7 +505,9 @@ textarea { resize: vertical; }
 }
 
 /* ─── ID-BASED LAYOUT (matches index.html structure) ─────── */
-#app:not(.hidden) { display: flex; flex-direction: column; height: 100vh; }
+/* ─── CORE APP LAYOUT ────────────────────────────────────── */
+#app { display: none; }
+#app:not(.hidden) { display: flex; flex-direction: row; height: 100vh; width: 100%; overflow: hidden; }
 #sidebar { width: 200px; background: var(--teal-dk); display: flex; flex-direction: column; flex-shrink: 0; overflow-y: auto; }
 #sidebar .sidebar-logo { padding: 16px 14px 12px; border-bottom: 1px solid rgba(255,255,255,.15); display: flex; align-items: center; gap: 10px; }
 #sidebar .sidebar-logo-mark { color: white; flex-shrink: 0; }
