@@ -27,17 +27,6 @@ export function navigate(page, params = {}) {
     pageEl.innerHTML = '';
   }
 
-  // Update topbar title
-  const titles = {
-    dashboard: 'Dashboard',
-    families: 'Families',
-    'family-detail': '',
-    settings: 'Settings',
-    help: 'Help'
-  };
-  const titleEl = document.getElementById('topbar-title');
-  if (titleEl) titleEl.textContent = titles[page] || '';
-
   // Clear topbar actions
   const actionsEl = document.getElementById('topbar-actions');
   if (actionsEl) actionsEl.innerHTML = '';

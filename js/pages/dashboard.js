@@ -66,40 +66,53 @@ function renderStats(active, closed) {
   const longTerm = active.filter(f => f.status === 'long_term').length;
   const activeOnly = active.filter(f => f.status === 'active').length;
   const lost = closed.filter(f => f.is_lost).length;
-  return `<div class="stats-grid">
-    <div class="stat-card stat-card-active"><div class="stat-label">Active</div><div class="stat-value">${activeOnly}</div><div class="stat-sub">in progress</div></div>
-    <div class="stat-card stat-card-longterm"><div class="stat-label">Long Term</div><div class="stat-value">${longTerm}</div><div class="stat-sub">awaiting dates</div></div>
-    <div class="stat-card stat-card-completed"><div class="stat-label">Completed</div><div class="stat-value">${closed.length - lost}</div><div class="stat-sub">cases closed</div></div>
-    <div class="stat-card" style="border-top-color:var(--coral)"><div class="stat-label">Lost</div><div class="stat-value" style="color:var(--coral-dk)">${lost}</div><div class="stat-sub">not retained</div></div>
+  const completed = closed.length - lost;
+  return `<div class="stats-bar">
+    <div class="stats-bar-item">
+      <div class="stats-bar-accent" style="background:var(--primary)"></div>
+      <div><div class="stats-bar-label">Active</div><div class="stats-bar-value">${activeOnly}</div><div class="stats-bar-sub">in progress</div></div>
+    </div>
+    <div class="stats-bar-divider"></div>
+    <div class="stats-bar-item">
+      <div class="stats-bar-accent" style="background:var(--violet)"></div>
+      <div><div class="stats-bar-label">Long Term</div><div class="stats-bar-value">${longTerm}</div><div class="stats-bar-sub">awaiting dates</div></div>
+    </div>
+    <div class="stats-bar-divider"></div>
+    <div class="stats-bar-item">
+      <div class="stats-bar-accent" style="background:var(--muted)"></div>
+      <div><div class="stats-bar-label">Completed</div><div class="stats-bar-value">${completed}</div><div class="stats-bar-sub">cases closed</div></div>
+    </div>
+    <div class="stats-bar-divider"></div>
+    <div class="stats-bar-item">
+      <div class="stats-bar-accent" style="background:var(--coral)"></div>
+      <div><div class="stats-bar-label">Lost</div><div class="stats-bar-value" style="color:var(--coral-dk)">${lost}</div><div class="stats-bar-sub">not retained</div></div>
+    </div>
   </div>`;
 }
 
 function renderCategoryToggle(activeCount, closedCount) {
-  return `<div class="category-toggle">
-    <button class="category-btn ${currentCategory==='active'?'active':''}" data-cat="active">
-      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-      Active Cases <span class="cat-count">${activeCount}</span>
-    </button>
-    <button class="category-btn ${currentCategory==='closed'?'active':''}" data-cat="closed">
-      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-      Closed Cases <span class="cat-count">${closedCount}</span>
-    </button>
-  </div>`;
+  return ''; // now integrated into toolbar
 }
 
 function renderToolbar(activeFamilies, completedCount, lostCount) {
   const activeOnly = activeFamilies.filter(f => f.status==='active').length;
   const longTerm = activeFamilies.filter(f => f.status==='long_term').length;
+  const totalActive = activeFamilies.length;
+  const totalClosed = completedCount + lostCount;
 
   const chips = currentCategory === 'active'
-    ? `<div class="filter-chip ${activeFilter==='all'?'active':''}" data-filter="all">All <span class="chip-count">${activeFamilies.length}</span></div>
+    ? `<div class="filter-chip ${activeFilter==='all'?'active':''}" data-filter="all">All <span class="chip-count">${totalActive}</span></div>
        <div class="filter-chip ${activeFilter==='active'?'active':''}" data-filter="active">Active <span class="chip-count">${activeOnly}</span></div>
        <div class="filter-chip ${activeFilter==='long_term'?'active':''}" data-filter="long_term">Long Term <span class="chip-count">${longTerm}</span></div>`
-    : `<div class="filter-chip ${closedFilter==='all'?'active':''}" data-filter="all">All <span class="chip-count">${completedCount+lostCount}</span></div>
+    : `<div class="filter-chip ${closedFilter==='all'?'active':''}" data-filter="all">All <span class="chip-count">${totalClosed}</span></div>
        <div class="filter-chip ${closedFilter==='completed'?'active':''}" data-filter="completed">Completed <span class="chip-count">${completedCount}</span></div>
        <div class="filter-chip ${closedFilter==='lost'?'active':''}" data-filter="lost">Lost <span class="chip-count">${lostCount}</span></div>`;
 
   return `<div class="toolbar">
+    <select class="category-select" id="category-select">
+      <option value="active" ${currentCategory==='active'?'selected':''}>Active Cases (${totalActive})</option>
+      <option value="closed" ${currentCategory==='closed'?'selected':''}>Closed Cases (${totalClosed})</option>
+    </select>
     <div class="search-wrap">
       <svg class="search-icon" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
       <input class="search-input" id="dash-search" placeholder="Search by name, contact, phone…" value="${escHtml(searchQuery)}">
@@ -119,15 +132,13 @@ function renderToolbar(activeFamilies, completedCount, lostCount) {
 }
 
 function bindToolbar() {
-  // Category toggle
-  document.querySelectorAll('.category-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      currentCategory = btn.dataset.cat;
-      activeFilter = 'all';
-      closedFilter = 'all';
-      searchQuery = '';
-      renderContent(document.getElementById('page-dashboard') || document.getElementById('page-families'));
-    });
+  // Category select
+  document.getElementById('category-select')?.addEventListener('change', e => {
+    currentCategory = e.target.value;
+    activeFilter = 'all';
+    closedFilter = 'all';
+    searchQuery = '';
+    renderContent(document.getElementById('page-dashboard') || document.getElementById('page-families'));
   });
 
   document.getElementById('dash-search')?.addEventListener('input', e => { searchQuery = e.target.value; renderFamilies(); });

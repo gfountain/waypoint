@@ -60,8 +60,7 @@ function renderPage(container) {
   const lostBadge = currentFamily.is_lost ? `<span class="badge badge-lost">⊘ Lost</span>` : '';
   const statusBadgeMap = { active:`<span class="badge badge-active">Active</span>`, long_term:`<span class="badge badge-longterm">Long Term</span>`, completed: currentFamily.is_lost ? lostBadge : `<span class="badge badge-completed">✓ Completed</span>` };
 
-  document.getElementById('topbar-title').textContent = `${f.decedent_last_name}, ${f.decedent_first_name}`;
-  document.getElementById('topbar-actions').innerHTML = `<button class="btn btn-ghost btn-sm" id="btn-edit-family">Edit Info</button>`;
+  document.getElementById('topbar-actions').innerHTML = `<button class="btn btn-ghost btn-sm" id="btn-edit-family" style="color:white;border-color:rgba(255,255,255,.4)">Edit Info</button>`;
   document.getElementById('btn-edit-family')?.addEventListener('click', openEditFamilyModal);
 
   container.innerHTML = `
