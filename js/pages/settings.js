@@ -157,12 +157,29 @@ function renderGroupEditor(group) {
 }
 
 function renderDirectItem(item) {
+  const subs = editingSubItems.filter(s=>s.item_id===item.id);
   return `<div class="builder-direct-item" id="bdi-${item.id}">
     <input class="builder-direct-item-label" value="${escHtml(item.label)}" data-item-label="${item.id}">
     ${item.is_important?`<span style="color:#FAC775;font-size:.8rem">★</span>`:''}
     <span style="font-size:.68rem;color:rgba(255,255,255,.5);background:rgba(255,255,255,.1);padding:1px 5px;border-radius:4px">${item.field_type}</span>
     <button class="btn-icon" style="color:rgba(255,255,255,.6)" data-edit-item="${item.id}"><svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
     <button class="btn-icon" style="color:rgba(255,255,255,.4)" data-del-item="${item.id}"><svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+  </div>
+  <div class="builder-sub-items" id="bsubs-${item.id}" style="background:rgba(255,255,255,.05);padding-left:20px">${subs.map(s=>renderSubEditorDark(s)).join('')}</div>
+  <div class="builder-add-sub-row" style="padding-left:20px;background:rgba(255,255,255,.03)">
+    <svg width="10" height="10" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    <input class="builder-add-sub-input" placeholder="Add sub-task…" data-add-sub="${item.id}" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.2);color:white">
+    <button class="btn btn-xs" style="background:rgba(255,255,255,.15);color:white;border:none" data-save-sub="${item.id}">Add</button>
+  </div>`;
+}
+
+function renderSubEditorDark(sub) {
+  return `<div class="builder-sub-item" id="bsub-${sub.id}" style="border-bottom:1px solid rgba(255,255,255,.08)">
+    <input class="builder-sub-item-label" value="${escHtml(sub.label)}" data-sub-label="${sub.id}" placeholder="Sub-task…" style="flex:1;color:rgba(255,255,255,.9);background:transparent;border:none">
+    ${sub.variable_name?`<span style="font-size:.65rem;color:rgba(255,255,255,.4);font-family:var(--font-mono)">${sub.variable_name}</span>`:''}
+    <span style="font-size:.65rem;color:rgba(255,255,255,.4);background:rgba(255,255,255,.1);padding:1px 4px;border-radius:3px">${sub.field_type}</span>
+    <button class="btn-icon" style="color:rgba(255,255,255,.5)" data-edit-sub="${sub.id}"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+    <button class="btn-icon" style="color:rgba(255,255,255,.3)" data-del-sub="${sub.id}"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
   </div>`;
 }
 
