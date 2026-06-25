@@ -1,131 +1,78 @@
 // ─── SHARED HELPERS ───────────────────────────────────────────
-
-// HTML escape
 export function escHtml(str) {
   if (str === null || str === undefined) return '';
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
-
-// Truncate text to N chars
-export function truncate(str, n = 80) {
-  if (!str) return '';
-  return str.length > n ? str.substring(0, n) + '…' : str;
-}
-
-// Deep clone a plain object
-export function deepClone(obj) {
-  return JSON.parse(JSON.stringify(obj));
-}
-
-// Debounce a function
-export function debounce(fn, ms = 300) {
-  let timer;
-  return (...args) => {
-    clearTimeout(timer);
-    timer = setTimeout(() => fn(...args), ms);
-  };
-}
-
-// Generate a slug from text
-export function slugify(text) {
-  return text
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, '')
-    .trim()
-    .replace(/\s+/g, '_')
-    .substring(0, 40);
-}
-
-// Capitalize first letter
-export function capitalize(str) {
-  if (!str) return '';
-  return str.charAt(0).toUpperCase() + str.slice(1);
-}
-
-// Format phone number for display
+export function truncate(str, n = 80) { if (!str) return ''; return str.length > n ? str.substring(0,n)+'…' : str; }
+export function debounce(fn, ms = 300) { let t; return (...a) => { clearTimeout(t); t = setTimeout(()=>fn(...a), ms); }; }
+export function capitalize(str) { if (!str) return ''; return str.charAt(0).toUpperCase()+str.slice(1); }
 export function formatPhone(phone) {
   if (!phone) return '';
-  const digits = phone.replace(/\D/g, '');
-  if (digits.length === 10) {
-    return `(${digits.slice(0,3)}) ${digits.slice(3,6)}-${digits.slice(6)}`;
-  }
+  const d = phone.replace(/\D/g,'');
+  if (d.length===10) return `(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}`;
   return phone;
 }
 
-// Calculate checklist progress
+// Progress calculation — excludes skipped items
 export function calcProgress(items) {
-  const applicable = items.filter(i => i.item_state !== 'skipped');
-  const complete = items.filter(i => i.item_state === 'complete');
-  const skipped = items.filter(i => i.item_state === 'skipped');
-  const total = applicable.length;
-  const pct = total === 0 ? 0 : Math.round((complete.length / total) * 100);
-  return {
-    total: applicable.length,
-    complete: complete.length,
-    skipped: skipped.length,
-    incomplete: applicable.length - complete.length,
-    pct
-  };
+  const skipped = items.filter(i=>i.item_state==='skipped').length;
+  const complete = items.filter(i=>i.item_state==='complete').length;
+  const total = items.length - skipped;
+  const pct = total===0 ? 0 : Math.round((complete/total)*100);
+  return { total, complete, skipped, incomplete: total-complete, pct };
 }
 
-// Get surfaced items for a family card
-// Returns items from sections with surface_on_card=true
-// plus items with is_important=true that are incomplete
+// Get next incomplete item across all items in order
+export function getNextIncompleteItem(items) {
+  return items.find(i => i.item_state === 'incomplete') || null;
+}
+
+// Get important incomplete items, capped at 3 with overflow count
+export function getImportantItems(items, subItems = []) {
+  const important = items.filter(i => i.is_important && i.item_state === 'incomplete');
+  const importantSubs = subItems.filter(i => i.is_important && i.item_state === 'incomplete');
+  const all = [...important, ...importantSubs];
+  return { shown: all.slice(0,3), overflow: Math.max(0, all.length-3) };
+}
+
+// Get surfaced items for card (items from surface_on_card sections)
 export function getSurfacedItems(sections, items) {
-  const surfacedSectionIds = new Set(
-    sections.filter(s => s.surface_on_card).map(s => s.id)
-  );
-
-  const surfaced = [];
-
-  // Items from "surface on card" sections that are incomplete
-  for (const item of items) {
-    if (
-      surfacedSectionIds.has(item.section_id) &&
-      item.item_state === 'incomplete'
-    ) {
-      surfaced.push({ ...item, _surface_reason: 'waiting' });
-    }
-  }
-
-  // Important items that are incomplete (not already added)
-  const addedIds = new Set(surfaced.map(i => i.id));
-  for (const item of items) {
-    if (
-      item.is_important &&
-      item.item_state === 'incomplete' &&
-      !addedIds.has(item.id)
-    ) {
-      surfaced.push({ ...item, _surface_reason: 'important' });
-    }
-  }
-
-  return surfaced.slice(0, 5); // cap at 5 to keep cards tidy
+  const surfacedIds = new Set(sections.filter(s=>s.surface_on_card).map(s=>s.id));
+  return items.filter(i=>surfacedIds.has(i.section_id) && i.item_state==='incomplete').slice(0,5);
 }
 
 // Parse field_value JSON safely
-export function parseFieldValue(fieldValue) {
-  if (!fieldValue) return null;
-  if (typeof fieldValue === 'object') return fieldValue;
-  try { return JSON.parse(fieldValue); } catch { return null; }
+export function parseFieldValue(fv) {
+  if (!fv) return null;
+  if (typeof fv === 'object') return fv;
+  try { return JSON.parse(fv); } catch { return null; }
 }
 
 // Get display string from field_value
 export function getFieldDisplayValue(item) {
   const fv = parseFieldValue(item.field_value);
   if (!fv) return '';
-  if ('checked' in fv) return fv.checked ? '✓ Checked' : '';
-  return fv.value ?? '';
+  if ('checked' in fv) return fv.checked ? '✓' : '';
+  if ('long' in fv || 'short' in fv) return `Long: ${fv.long||0} · Short: ${fv.short||0}`;
+  if ('value' in fv) return String(fv.value ?? '');
+  return '';
 }
 
-// Build field_value JSON for saving
+// Build field_value for saving
 export function buildFieldValue(fieldType, rawValue) {
-  if (fieldType === 'checkbox') {
-    return { checked: !!rawValue };
-  }
+  if (fieldType==='checkbox') return { checked: !!rawValue };
+  if (fieldType==='dc_quantity') return rawValue; // pass { long, short } directly
   return { value: rawValue };
+}
+
+// Check if all sub-items of a parent item are complete/skipped
+export function allSubItemsDone(subItems) {
+  if (!subItems.length) return false;
+  return subItems.every(s => s.item_state === 'complete' || s.item_state === 'skipped');
+}
+
+// Format currency
+export function formatCurrency(val) {
+  if (val === null || val === undefined || val === '') return '';
+  return new Intl.NumberFormat('en-US', { style:'currency', currency:'USD' }).format(val);
 }
