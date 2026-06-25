@@ -11,17 +11,47 @@ import { initNotifications } from './notifications.js';
 
 // Pages
 import { renderDashboard } from './pages/dashboard.js';
-import { renderFamilies } from './pages/families.js';
 import { renderFamilyDetail } from './pages/family-detail.js';
 import { renderSettings } from './pages/settings.js';
 import { renderHelp } from './pages/help.js';
 
 // ── Register pages ────────────────────────────────────────────
 registerPage('dashboard', renderDashboard);
-registerPage('families', renderFamilies);
+registerPage('families', renderDashboard); // families = dashboard
 registerPage('family-detail', renderFamilyDetail);
 registerPage('settings', renderSettings);
 registerPage('help', renderHelp);
+
+// ── Theme management ──────────────────────────────────────────
+const THEMES = ['forest','ocean','violet','midnight','crimson','warm','rose','emerald','slate','graphite'];
+
+export function applyTheme(theme) {
+  if (!THEMES.includes(theme)) theme = 'forest';
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem('waypoint-theme', theme);
+}
+
+async function loadUserTheme(userId) {
+  // Try localStorage first for instant apply
+  const cached = localStorage.getItem('waypoint-theme');
+  if (cached) applyTheme(cached);
+
+  // Then load from DB
+  try {
+    const { data } = await db.from('user_preferences').select('theme').eq('user_id', userId).single();
+    if (data?.theme) applyTheme(data.theme);
+  } catch {
+    // No preference saved yet — use default
+  }
+}
+
+export async function saveUserTheme(userId, theme) {
+  applyTheme(theme);
+  await db.from('user_preferences').upsert(
+    { user_id: userId, theme },
+    { onConflict: 'user_id' }
+  );
+}
 
 // ── Auth screen logic ─────────────────────────────────────────
 function showAuthScreen() {
@@ -29,17 +59,21 @@ function showAuthScreen() {
   document.getElementById('app').classList.add('hidden');
 }
 
-function showApp(user) {
+async function showApp(user) {
   document.getElementById('auth-screen').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
 
-  // Set user info in sidebar
+  // Load theme
+  await loadUserTheme(user.id);
+
+  // Set user info
   const name = getUserDisplayName(user);
   const initials = getUserInitials(user);
-  document.getElementById('sidebar-name').textContent = name;
+  document.getElementById('sidebar-name').textContent = name.split(' ')[0]; // first name only in nav
   document.getElementById('sidebar-avatar').textContent = initials;
+  document.getElementById('avatar-dropdown-name').textContent = name;
 
-  // Start notifications polling
+  // Start notifications
   initNotifications(user.id);
 
   // Navigate to hash or dashboard
@@ -54,24 +88,19 @@ document.getElementById('btn-login').addEventListener('click', async () => {
   const password = document.getElementById('login-password').value;
   const errEl = document.getElementById('auth-error');
   errEl.classList.add('hidden');
-
   if (!email || !password) {
     errEl.textContent = 'Please enter your email and password.';
     errEl.classList.remove('hidden');
     return;
   }
-
   const btn = document.getElementById('btn-login');
-  btn.textContent = 'Signing in…';
-  btn.disabled = true;
-
+  btn.textContent = 'Signing in…'; btn.disabled = true;
   try {
     await signIn(email, password);
   } catch (err) {
-    errEl.textContent = err.message || 'Sign in failed. Please try again.';
+    errEl.textContent = err.message || 'Sign in failed.';
     errEl.classList.remove('hidden');
-    btn.textContent = 'Sign In';
-    btn.disabled = false;
+    btn.textContent = 'Sign In'; btn.disabled = false;
   }
 });
 
@@ -81,35 +110,20 @@ document.getElementById('btn-register').addEventListener('click', async () => {
   const password = document.getElementById('reg-password').value;
   const errEl = document.getElementById('auth-error');
   const successEl = document.getElementById('auth-success');
-  errEl.classList.add('hidden');
-  successEl.classList.add('hidden');
-
-  if (!name || !email || !password) {
-    errEl.textContent = 'Please fill in all fields.';
-    errEl.classList.remove('hidden');
-    return;
-  }
-  if (password.length < 8) {
-    errEl.textContent = 'Password must be at least 8 characters.';
-    errEl.classList.remove('hidden');
-    return;
-  }
-
+  errEl.classList.add('hidden'); successEl.classList.add('hidden');
+  if (!name || !email || !password) { errEl.textContent = 'Please fill in all fields.'; errEl.classList.remove('hidden'); return; }
+  if (password.length < 8) { errEl.textContent = 'Password must be at least 8 characters.'; errEl.classList.remove('hidden'); return; }
   const btn = document.getElementById('btn-register');
-  btn.textContent = 'Creating account…';
-  btn.disabled = true;
-
+  btn.textContent = 'Creating account…'; btn.disabled = true;
   try {
     await signUp(email, password, name);
-    successEl.textContent = 'Account created! Check your email for a confirmation link, then sign in.';
+    successEl.textContent = 'Account created! Check your email to confirm, then sign in.';
     successEl.classList.remove('hidden');
-    btn.textContent = 'Create Account';
-    btn.disabled = false;
+    btn.textContent = 'Create Account'; btn.disabled = false;
   } catch (err) {
-    errEl.textContent = err.message || 'Registration failed. Please try again.';
+    errEl.textContent = err.message || 'Registration failed.';
     errEl.classList.remove('hidden');
-    btn.textContent = 'Create Account';
-    btn.disabled = false;
+    btn.textContent = 'Create Account'; btn.disabled = false;
   }
 });
 
@@ -118,120 +132,109 @@ document.getElementById('btn-show-register').addEventListener('click', () => {
   document.getElementById('auth-register').classList.remove('hidden');
   document.getElementById('auth-error').classList.add('hidden');
 });
-
 document.getElementById('btn-show-login').addEventListener('click', () => {
   document.getElementById('auth-register').classList.add('hidden');
   document.getElementById('auth-login').classList.remove('hidden');
   document.getElementById('auth-error').classList.add('hidden');
 });
-
-// Allow Enter key to submit login
-document.getElementById('login-password').addEventListener('keydown', (e) => {
+document.getElementById('login-password').addEventListener('keydown', e => {
   if (e.key === 'Enter') document.getElementById('btn-login').click();
 });
 
 // ── Sign out ──────────────────────────────────────────────────
 document.getElementById('btn-signout').addEventListener('click', async () => {
-  try {
-    await signOut();
-  } catch (err) {
-    toast('Sign out failed', 'error');
-  }
+  try { await signOut(); } catch { toast('Sign out failed', 'error'); }
+  document.getElementById('avatar-dropdown').classList.add('hidden');
 });
 
 // ── Session warning ───────────────────────────────────────────
 document.getElementById('btn-stay-signed-in').addEventListener('click', refreshSession);
 
-// ── Notification bell ─────────────────────────────────────────
-document.getElementById('notif-btn').addEventListener('click', (e) => {
+// ── Avatar dropdown ───────────────────────────────────────────
+document.getElementById('avatar-btn').addEventListener('click', e => {
   e.stopPropagation();
-  const panel = document.getElementById('notif-panel');
-  panel.classList.toggle('hidden');
+  document.getElementById('avatar-dropdown').classList.toggle('hidden');
+  document.getElementById('notif-panel').classList.add('hidden');
 });
-
-document.addEventListener('click', (e) => {
-  const wrap = document.getElementById('notif-wrap');
-  if (wrap && !wrap.contains(e.target)) {
+document.getElementById('btn-goto-account').addEventListener('click', () => {
+  document.getElementById('avatar-dropdown').classList.add('hidden');
+  navigate('settings');
+  // Switch to account tab after settings renders
+  setTimeout(() => {
+    document.querySelector('[data-tab="account"]')?.click();
+  }, 100);
+});
+document.addEventListener('click', e => {
+  if (!document.getElementById('avatar-wrap')?.contains(e.target)) {
+    document.getElementById('avatar-dropdown')?.classList.add('hidden');
+  }
+  if (!document.getElementById('notif-wrap')?.contains(e.target)) {
     document.getElementById('notif-panel')?.classList.add('hidden');
   }
 });
 
-// ── Navigation clicks ─────────────────────────────────────────
-document.querySelectorAll('.nav-item').forEach(item => {
-  item.addEventListener('click', (e) => {
+// ── Notification bell ─────────────────────────────────────────
+document.getElementById('notif-btn').addEventListener('click', e => {
+  e.stopPropagation();
+  document.getElementById('notif-panel').classList.toggle('hidden');
+  document.getElementById('avatar-dropdown').classList.add('hidden');
+});
+
+// ── Top nav tab clicks ────────────────────────────────────────
+document.querySelectorAll('.topnav-tab').forEach(tab => {
+  tab.addEventListener('click', e => {
     e.preventDefault();
-    const page = item.dataset.page;
+    const page = tab.dataset.page;
     if (page) navigate(page);
-    // Close mobile menu if open
-    document.getElementById('sidebar').classList.remove('mobile-open');
   });
 });
 
-// ── Mobile menu toggle ────────────────────────────────────────
-document.getElementById('mobile-menu-btn').addEventListener('click', () => {
-  document.getElementById('sidebar').classList.toggle('mobile-open');
-});
-
-// ── Help button in topbar ─────────────────────────────────────
-document.getElementById('topbar-help-btn').addEventListener('click', () => {
-  navigate('help');
+// ── Floating action button ────────────────────────────────────
+document.getElementById('fab-new-family').addEventListener('click', () => {
+  import('./pages/families.js').then(m => {
+    if (typeof m.openNewFamilyModal === 'function') m.openNewFamilyModal();
+  });
 });
 
 // ── Keyboard shortcuts ────────────────────────────────────────
-document.addEventListener('keydown', (e) => {
-  // Don't fire if typing in an input
+document.addEventListener('keydown', e => {
   const tag = document.activeElement?.tagName;
   const isInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes(tag);
-
   if (e.key === 'Escape') {
-    // Close modal
     const modal = document.getElementById('modal-container');
-    if (modal?.innerHTML) {
-      modal.innerHTML = '';
-      return;
-    }
-    // Close notification panel
+    if (modal?.innerHTML) { modal.innerHTML = ''; return; }
     document.getElementById('notif-panel')?.classList.add('hidden');
-    // Close mobile menu
-    document.getElementById('sidebar')?.classList.remove('mobile-open');
+    document.getElementById('avatar-dropdown')?.classList.add('hidden');
     return;
   }
-
   if (isInput) return;
-
   if (e.key === '/') {
     e.preventDefault();
-    // Focus search on current page
-    const search = document.querySelector('.search-input');
-    if (search) search.focus();
+    document.querySelector('.search-input')?.focus();
     return;
   }
-
   if (e.key === 'n' || e.key === 'N') {
-    // Open new family modal
     import('./pages/families.js').then(m => {
       if (typeof m.openNewFamilyModal === 'function') m.openNewFamilyModal();
     });
-    return;
   }
 });
 
-// Show shortcut hint briefly on load
+// Show shortcut hint briefly
 setTimeout(() => {
   const hint = document.getElementById('shortcut-hint');
   if (hint) {
     hint.classList.remove('hidden');
-    setTimeout(() => hint.classList.add('hidden'), 4000);
+    hint.classList.add('visible');
+    setTimeout(() => { hint.classList.remove('visible'); hint.classList.add('hidden'); }, 3000);
   }
-}, 2000);
+}, 1500);
 
-// ── Auth state listener — main entry ─────────────────────────
+// ── Auth state listener ───────────────────────────────────────
 onAuthStateChange((event, session) => {
   if (session?.user) {
     showApp(session.user);
-    if (session.expires_at) {
-      startSessionWarning(session.expires_at);
-    }
+    if (session.expires_at) startSessionWarning(session.expires_at);
   } else {
     showAuthScreen();
   }
@@ -241,9 +244,7 @@ onAuthStateChange((event, session) => {
 const { data: { session } } = await db.auth.getSession();
 if (session?.user) {
   showApp(session.user);
-  if (session.expires_at) {
-    startSessionWarning(session.expires_at);
-  }
+  if (session.expires_at) startSessionWarning(session.expires_at);
 } else {
   showAuthScreen();
 }

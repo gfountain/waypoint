@@ -5,6 +5,7 @@ import { toast } from '../components/toast.js';
 import { escHtml } from '../utils/helpers.js';
 import { labelToVariableName } from '../utils/variable-resolver.js';
 import { getCurrentUser } from '../auth.js';
+import { applyTheme, saveUserTheme } from '../app.js';
 
 let currentUser = null, templates = [], editingTemplate = null;
 let editingGroups = [], editingSections = [], editingItems = [], editingSubItems = [];
@@ -15,12 +16,14 @@ export async function renderSettings(params, container) {
   document.getElementById('topbar-actions').innerHTML = '';
   container.innerHTML = `
     <div style="display:flex;border-bottom:2px solid var(--border);margin-bottom:20px">
-      <div class="stab" data-tab="templates" style="padding:9px 18px;font-size:.875rem;font-weight:500;cursor:pointer;border-bottom:2px solid ${activeTab==='templates'?'var(--teal)':'transparent'};margin-bottom:-2px;color:${activeTab==='templates'?'var(--teal-dk)':'var(--muted)'}">Templates</div>
-      <div class="stab" data-tab="account" style="padding:9px 18px;font-size:.875rem;font-weight:500;cursor:pointer;border-bottom:2px solid ${activeTab==='account'?'var(--teal)':'transparent'};margin-bottom:-2px;color:${activeTab==='account'?'var(--teal-dk)':'var(--muted)'}">Account</div>
+      <div class="stab" data-tab="templates" style="padding:9px 18px;font-size:.875rem;font-weight:500;cursor:pointer;border-bottom:2px solid ${activeTab==='templates'?'var(--primary)':'transparent'};margin-bottom:-2px;color:${activeTab==='templates'?'var(--primary-dk)':'var(--muted)'}">Templates</div>
+      <div class="stab" data-tab="appearance" style="padding:9px 18px;font-size:.875rem;font-weight:500;cursor:pointer;border-bottom:2px solid ${activeTab==='appearance'?'var(--primary)':'transparent'};margin-bottom:-2px;color:${activeTab==='appearance'?'var(--primary-dk)':'var(--muted)'}">Appearance</div>
+      <div class="stab" data-tab="account" style="padding:9px 18px;font-size:.875rem;font-weight:500;cursor:pointer;border-bottom:2px solid ${activeTab==='account'?'var(--primary)':'transparent'};margin-bottom:-2px;color:${activeTab==='account'?'var(--primary-dk)':'var(--muted)'}">Account</div>
     </div>
     <div id="settings-content"></div>`;
   document.querySelectorAll('.stab').forEach(t => t.addEventListener('click', () => { activeTab = t.dataset.tab; renderSettings(params, container); }));
   if (activeTab==='templates') await renderTemplatesTab();
+  else if (activeTab==='appearance') await renderAppearanceTab();
   else renderAccountTab();
 }
 
@@ -437,6 +440,47 @@ function openSectionModal(sectionId) {
 }
 
 // ── ACCOUNT TAB ───────────────────────────────────────────────
+
+async function renderAppearanceTab() {
+  const content = document.getElementById('settings-content');
+  const themes = [
+    { id:'forest',   name:'Forest',   color:'#1D9E75' },
+    { id:'ocean',    name:'Ocean',    color:'#2563EB' },
+    { id:'violet',   name:'Violet',   color:'#7C3AED' },
+    { id:'midnight', name:'Midnight', color:'#1E293B' },
+    { id:'crimson',  name:'Crimson',  color:'#DC2626' },
+    { id:'warm',     name:'Warm',     color:'#B45309' },
+    { id:'rose',     name:'Rose',     color:'#E11D48' },
+    { id:'emerald',  name:'Emerald',  color:'#059669' },
+    { id:'slate',    name:'Slate',    color:'#475569' },
+    { id:'graphite', name:'Graphite', color:'#374151' }
+  ];
+
+  // Get current theme
+  const currentTheme = document.documentElement.getAttribute('data-theme') || 'forest';
+
+  content.innerHTML = `
+    <h2 style="font-family:var(--font-serif);font-size:1.2rem;margin-bottom:6px">Appearance</h2>
+    <p style="font-size:.82rem;color:var(--muted);margin-bottom:4px">Choose a color theme for the app. Your selection is saved to your account.</p>
+    <div class="theme-grid" id="theme-grid">
+      ${themes.map(t => `
+        <div class="theme-swatch ${t.id===currentTheme?'active':''}" data-theme-id="${t.id}">
+          <div class="theme-swatch-color" style="background:${t.color}"></div>
+          <div class="theme-swatch-name">${t.name}</div>
+        </div>`).join('')}
+    </div>`;
+
+  content.querySelectorAll('.theme-swatch').forEach(swatch => {
+    swatch.addEventListener('click', async () => {
+      const themeId = swatch.dataset.themeId;
+      content.querySelectorAll('.theme-swatch').forEach(s => s.classList.remove('active'));
+      swatch.classList.add('active');
+      await saveUserTheme(currentUser.id, themeId);
+      toast('Theme saved', 'success');
+    });
+  });
+}
+
 function renderAccountTab() {
   const content = document.getElementById('settings-content');
   const name = currentUser?.user_metadata?.full_name||'';

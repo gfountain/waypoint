@@ -16,8 +16,8 @@ export function navigate(page, params = {}) {
   document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
 
   // Update nav active state
-  document.querySelectorAll('.nav-item').forEach(n => {
-    n.classList.toggle('active', n.dataset.page === page);
+  document.querySelectorAll('.topnav-tab').forEach(n => {
+    n.classList.toggle('active', n.dataset.page === page || (page === 'families' && n.dataset.page === 'dashboard'));
   });
 
   // Show target page
