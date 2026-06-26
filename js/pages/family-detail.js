@@ -147,11 +147,12 @@ function renderChecklist() {
   }
 
   // Two-column layout
-  html += `<div class="checklist-grid">`;
+  html += `<div class="checklist-wrap-inner">`;
 
   for (const group of allGroups) {
     const groupItems = allItems.filter(i => i.group_id===group.id);
-    const groupProg = calcProgress(groupItems);
+    const groupSubItems = allSubItems.filter(s => groupItems.some(i => i.id===s.item_id));
+    const groupProg = calcProgress(groupItems, groupSubItems);
     const allGroupDone = groupProg.incomplete===0 && groupProg.total>0;
 
     html += `<div class="group-block" id="group-${group.id}">
@@ -191,7 +192,8 @@ function renderChecklist() {
       const secVisible = evaluateLogic(sec.conditional_logic, varMap);
       if (!secVisible) continue;
       const secItems = allItems.filter(i => i.section_id===sec.id);
-      const secProg = calcProgress(secItems);
+      const secSubItems = allSubItems.filter(s => secItems.some(i => i.id===s.item_id));
+      const secProg = calcProgress(secItems, secSubItems);
       const allSecDone = secProg.incomplete===0 && secProg.total>0;
       const showComp = showCompleted[sec.id]||false;
       const showSkip = showSkipped[sec.id]||false;
@@ -238,7 +240,7 @@ function renderChecklist() {
     html += `</div></div>`;
   }
 
-  html += `</div>`; // end checklist-grid
+  html += `</div>`;
   wrap.innerHTML = html;
   bindChecklistEvents(wrap);
 }

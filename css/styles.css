@@ -625,9 +625,12 @@ textarea { resize: vertical; }
 .sub-chevron.open { transform: rotate(180deg); }
 
 /* ─── CHECKLIST GRID (two column) ───────────────────────────── */
-.checklist-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
-.checklist-grid .group-block { break-inside: avoid; }
-@media (max-width: 900px) { .checklist-grid { grid-template-columns: 1fr; } }
+.checklist-grid { display: block; }
+.group-body { columns: 2; column-gap: 0; column-fill: balance; }
+.group-body .section-block { break-inside: avoid; }
+.group-body .group-direct-items { break-inside: avoid; }
+.checklist-item { break-inside: avoid; }
+@media (max-width: 900px) { .group-body { columns: 1; } }
 
 /* ─── HELP DRAWER ────────────────────────────────────────────── */
 #help-drawer { position: fixed; inset: 0; z-index: 1000; }
