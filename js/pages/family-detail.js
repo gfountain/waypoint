@@ -61,7 +61,6 @@ function renderPage(container) {
   const statusBadgeMap = { active:`<span class="badge badge-active">Active</span>`, long_term:`<span class="badge badge-longterm">Long Term</span>`, completed: currentFamily.is_lost ? lostBadge : `<span class="badge badge-completed">✓ Completed</span>` };
 
   document.getElementById('topbar-actions').innerHTML = '';
-  document.getElementById('btn-edit-family')?.addEventListener('click', openEditFamilyModal);
 
   container.innerHTML = `
     <div class="detail-back" id="detail-back">
@@ -106,6 +105,7 @@ function renderPage(container) {
       <div class="info-panel" id="info-panel">${renderSidebar(prog, primary)}</div>
     </div>`;
 
+  document.getElementById('btn-edit-family')?.addEventListener('click', openEditFamilyModal);
   document.getElementById('detail-back')?.addEventListener('click', () => {
     import('../pages/dashboard.js').then(m => m.invalidateFamilyCache());
     navigate('families');
