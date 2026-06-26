@@ -263,7 +263,6 @@ function renderFamilies() {
 // ── ARRANGEMENT DISPLAY ON CARD ──────────────────────────────
 function renderCardArrangement(family) {
   if (!family.arrangement_date) {
-    // No arrangement set — show prompt (only for active cases, not long term waiting)
     if (family.status === 'active') {
       return `<div class="card-arr-prompt">
         <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
@@ -274,9 +273,7 @@ function renderCardArrangement(family) {
   }
   const arr = new Date(family.arrangement_date);
   const now = new Date();
-  // If arrangement has passed, don't show it
   if (arr <= now) return '';
-  // Show upcoming arrangement prominently
   const etDate = arr.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',timeZone:'America/New_York'});
   const etTime = arr.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZone:'America/New_York'});
   const status = getArrangementStatus(family.arrangement_date);
@@ -284,9 +281,9 @@ function renderCardArrangement(family) {
   const labelMap = { today:'Today', tomorrow:'Tomorrow', 'this-week':etDate };
   const cls = colorMap[status]||'card-arr-upcoming';
   const label = labelMap[status]||etDate;
-  return `<div class="card-arr-banner ${cls}">
+  return `<div class="card-arr-strip ${cls}">
     <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-    <strong>Arrangement Conference</strong> — ${label} at ${etTime}
+    Arrangement Conference — ${label} at ${etTime}
   </div>`;
 }
 

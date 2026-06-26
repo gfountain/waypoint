@@ -76,7 +76,7 @@ function renderPage(container) {
               <svg width="14" height="14" fill="none" stroke="rgba(255,255,255,.7)" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
             </button>
           </div>
-          <div class="detail-dates">${f.date_of_birth?`DOB: ${formatDate(f.date_of_birth)}`:''} ${f.date_of_birth&&f.date_of_death?' · ':''} ${f.date_of_death?`DOD: ${formatDate(f.date_of_death)}`:''} ${f.contract_number?` · #${escHtml(f.contract_number)}`:''}</div>
+          <div class="detail-dates">${[f.date_of_birth?`DOB: ${formatDate(f.date_of_birth)}`:null, f.date_of_death?`DOD: ${formatDate(f.date_of_death)}`:null, f.contract_number?`#${escHtml(f.contract_number)}`:null].filter(Boolean).join(' · ')}</div>
         </div>
         <div class="detail-header-actions">
           <button class="btn btn-ghost btn-sm" id="btn-active" ${f.status==='active'?'disabled':''} style="color:white;border-color:rgba(255,255,255,.4)">Active</button>
@@ -936,9 +936,9 @@ function openEditFamilyModal() {
   const f = currentFamily;
   openModal({ title:'Edit Family Information', size:'lg', body:`
     <div class="form-section-title">Decedent Information</div>
-    <div class="form-row">
+    <div style="display:grid;grid-template-columns:1fr .7fr 1fr;gap:10px">
       <div class="form-group"><label class="form-label">First Name</label><input class="form-input" id="ef-first" value="${escHtml(f.decedent_first_name)}"></div>
-      <div class="form-group"><label class="form-label">Middle Name</label><input class="form-input" id="ef-middle" value="${escHtml(f.middle_name||'')}"></div>
+      <div class="form-group"><label class="form-label">Middle</label><input class="form-input" id="ef-middle" value="${escHtml(f.middle_name||'')}"></div>
       <div class="form-group"><label class="form-label">Last Name</label><input class="form-input" id="ef-last" value="${escHtml(f.decedent_last_name)}"></div>
     </div>
     <div class="form-row">
