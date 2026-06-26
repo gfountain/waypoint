@@ -314,10 +314,10 @@ function renderCard(family) {
       <div>
         <div class="card-dec-name">${escHtml(family.decedent_last_name)}, ${escHtml(family.decedent_first_name)}</div>
         <div class="card-dec-dates">${family.date_of_death?`DOD: ${formatDate(family.date_of_death)}`:''}</div>
-      ${renderCardArrangement(family)}
       </div>
       <div class="card-badges">${statusBadge}${veteranBadge}</div>
     </div>
+    ${renderCardArrangement(family)}
     <div class="card-meta">
       ${family.contract_number?`<span class="card-meta-item">#${escHtml(family.contract_number)}</span>`:''}
   

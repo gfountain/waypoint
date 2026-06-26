@@ -665,8 +665,7 @@ textarea { resize: vertical; }
 .detail-name { font-family: var(--font-serif); font-size: 1.35rem; color: white; }
 
 /* ─── CARD ARRANGEMENT DISPLAY ───────────────────────────────── */
-.card-arr-row { width: 100%; margin-bottom: 8px; }
-.card-arr-box { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 7px 12px; border-radius: var(--radius); border: 1px solid; text-align: center; }
+.card-arr-box { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 8px 12px; border-radius: var(--radius); border: 1px solid; text-align: center; width: 100%; margin-bottom: 8px; box-sizing: border-box; }
 .card-arr-box-inner { }
 .card-arr-box-label { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; opacity: .75; }
 .card-arr-box-time { font-size: .85rem; font-weight: 700; margin-top: 1px; }
