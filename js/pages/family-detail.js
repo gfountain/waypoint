@@ -155,6 +155,85 @@ function renderChecklist() {
     const groupProg = calcProgress(groupItems, groupSubItems);
     const allGroupDone = groupProg.incomplete===0 && groupProg.total>0;
 
+    // Build all renderable blocks for this group
+    const groupBlocks = [];
+
+    // Direct items (no section)
+    const directItems = allItems.filter(i => i.group_id===group.id && !i.section_id);
+    if (directItems.length) {
+      let directHtml = `<div class="group-direct-items">`;
+      for (const item of directItems) {
+        const visible = evaluateLogic(item.conditional_logic, varMap);
+        const subs = allSubItems.filter(s => s.item_id===item.id);
+        directHtml += renderItem(item, subs, varMap, !visible);
+      }
+      directHtml += `<div class="add-group-item-row">
+        <svg width="12" height="12" fill="none" stroke="var(--muted)" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        <input class="add-item-input" placeholder="Add task…" data-add-direct="${group.id}">
+        <button class="btn btn-ghost btn-xs" data-add-direct-btn="${group.id}">Add</button>
+      </div></div>`;
+      groupBlocks.push(directHtml);
+    } else {
+      groupBlocks.push(`<div class="group-direct-items"><div class="add-group-item-row">
+        <svg width="12" height="12" fill="none" stroke="var(--muted)" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        <input class="add-item-input" placeholder="Add task…" data-add-direct="${group.id}">
+        <button class="btn btn-ghost btn-xs" data-add-direct-btn="${group.id}">Add</button>
+      </div></div>`);
+    }
+
+    // Sections
+    const groupSections = allSections.filter(s => s.group_id===group.id);
+    for (const sec of groupSections) {
+      const secVisible = evaluateLogic(sec.conditional_logic, varMap);
+      if (!secVisible) continue;
+      const secItems = allItems.filter(i => i.section_id===sec.id);
+      const secSubItems = allSubItems.filter(s => secItems.some(i => i.id===s.item_id));
+      const secProg = calcProgress(secItems, secSubItems);
+      const allSecDone = secProg.incomplete===0 && secProg.total>0;
+      const showComp = showCompleted[sec.id]||false;
+      const showSkip = showSkipped[sec.id]||false;
+      const compCount = secItems.filter(i => i.item_state==='complete').length;
+      const skipCount = secItems.filter(i => i.item_state==='skipped').length;
+
+      let secHtml = `<div class="section-block" id="section-${sec.id}">
+        <div class="section-header" data-section-id="${sec.id}">
+          <span class="section-title">${escHtml(sec.title)}</span>
+          <div class="section-badges">
+            ${sec.conditional_logic?`<span class="section-cond-badge">conditional</span>`:''}
+            ${sec.surface_on_card?`<span class="section-surface-badge">on card</span>`:''}
+          </div>
+          <span class="section-progress">${secProg.complete}/${secProg.total}</span>
+          <div class="section-toggle-pills">
+            ${compCount?`<button class="toggle-pill ${showComp?'active':''}" data-sec="${sec.id}" data-toggle="completed">${compCount} done</button>`:''}
+            ${skipCount?`<button class="toggle-pill ${showSkip?'active':''}" data-sec="${sec.id}" data-toggle="skipped">${skipCount} skipped</button>`:''}
+          </div>
+          <svg class="section-chevron ${allSecDone?'':'open'}" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg>
+        </div>
+        <div class="section-body ${allSecDone?'collapsed':''}" id="sec-body-${sec.id}">
+          ${allSecDone?`<div class="section-complete-banner"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>All tasks complete</div>`:''}`;
+
+      for (const item of secItems) {
+        const visible = evaluateLogic(item.conditional_logic, varMap);
+        if (item.item_state==='complete' && !showComp) continue;
+        if (item.item_state==='skipped' && !showSkip) continue;
+        if (!visible) continue;
+        const subs = allSubItems.filter(s => s.item_id===item.id);
+        secHtml += renderItem(item, subs, varMap, false);
+      }
+
+      secHtml += `<div class="add-item-row">
+        <svg width="12" height="12" fill="none" stroke="var(--muted)" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        <input class="add-item-input" placeholder="Add task…" data-section-id="${sec.id}">
+        <button class="btn btn-ghost btn-xs" data-add-item="${sec.id}">Add</button>
+      </div></div></div>`;
+      groupBlocks.push(secHtml);
+    }
+
+    // Split blocks into two columns
+    const mid = Math.ceil(groupBlocks.length / 2);
+    const leftBlocks = groupBlocks.slice(0, mid);
+    const rightBlocks = groupBlocks.slice(mid);
+
     html += `<div class="group-block" id="group-${group.id}">
       <div class="group-header" data-group-id="${group.id}">
         <span class="group-header-title">${escHtml(group.title)}</span>
@@ -162,7 +241,20 @@ function renderChecklist() {
         <span class="group-header-progress">${groupProg.complete}/${groupProg.total}</span>
         <svg class="group-chevron ${allGroupDone?'':'open'}" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg>
       </div>
-      <div class="group-body ${allGroupDone?'collapsed':''}" id="group-body-${group.id}">`;
+      <div class="group-body ${allGroupDone?'collapsed':''}" id="group-body-${group.id}">
+        <div class="checklist-two-col">
+          <div class="checklist-col">${leftBlocks.join('')}</div>
+          <div class="checklist-col">${rightBlocks.join('')}</div>
+        </div>
+        <div style="padding:6px 14px;border-top:1px solid var(--border)">
+          <button class="btn btn-ghost btn-xs" data-add-section="${group.id}" style="font-size:.72rem">+ Add section to ${escHtml(group.title)}</button>
+        </div>
+      </div>
+    </div>`;
+
+    continue; // skip old rendering below
+    html += `<div class="group-block" id="group-SKIP">
+      <div class="group-body" id="group-body-SKIP">`;
 
     // Direct items (no section)
     const directItems = allItems.filter(i => i.group_id===group.id && !i.section_id);
