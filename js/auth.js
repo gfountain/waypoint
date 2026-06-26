@@ -40,8 +40,6 @@ export async function signOut() {
 
 // ── Session warning system ────────────────────────────────────
 export function startSessionWarning() { /* session expiry warnings disabled */ }
-export function clearSessionTimers() {}
-
 export function clearSessionTimers() {
   if (sessionWarningTimer) clearTimeout(sessionWarningTimer);
   if (sessionCountdownTimer) clearInterval(sessionCountdownTimer);
