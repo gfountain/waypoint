@@ -172,7 +172,8 @@ function renderEditorFullPage(container) {
       <div class="tpl-editor-topbar">
         <button class="btn btn-ghost btn-sm" id="btn-back-tpl">← Templates</button>
         <span class="tpl-editor-title">${escHtml(editingTemplate?.name||'')}</span>
-        <button class="btn btn-primary btn-sm" id="btn-add-group">+ Add Group Header</button>
+        <button class="btn btn-ghost btn-sm" id="btn-sync-cases">↑ Sync to Active Cases</button>
+      <button class="btn btn-primary btn-sm" id="btn-add-group">+ Add Group Header</button>
       </div>
       <div class="tpl-editor-body" id="tpl-editor-body">
         ${editingGroups.length ? editingGroups.map(g=>renderGroupEditor(g)).join('') :
@@ -228,6 +229,8 @@ function renderEditorFullPage(container) {
       editingSubItems.sort((a,b) => a.position - b.position);
     });
   });
+
+  document.getElementById('btn-sync-cases')?.addEventListener('click', () => syncToActiveCases());
 
   document.getElementById('btn-back-tpl')?.addEventListener('click', async () => {
     editorOpen = false;
@@ -687,6 +690,156 @@ function openSectionModal(sectionId) {
     sec.title=title; sec.surface_on_card=surface; sec.conditional_logic=cond;
     closeModal(); toast('Section updated','success');
     renderEditorFullPage(document.getElementById('page-settings'));
+  });
+}
+
+// ── SYNC TEMPLATE TO ACTIVE CASES ────────────────────────────
+async function syncToActiveCases() {
+  // Find all active families using this template
+  const { data: families } = await db.from('families')
+    .select('id, decedent_first_name, decedent_last_name, status')
+    .eq('template_id', editingTemplate.id)
+    .in('status', ['active', 'long_term']);
+
+  if (!families?.length) {
+    openModal({ title:'Sync to Active Cases', size:'sm', body:`
+      <div class="empty-state" style="padding:20px 0">
+        <div class="empty-icon">📋</div>
+        <div class="empty-title">No active cases</div>
+        <div class="empty-desc">There are no active or long-term cases using this template.</div>
+      </div>`, footer:`<button class="btn btn-primary" id="sync-close">Close</button>` });
+    document.getElementById('sync-close')?.addEventListener('click', closeModal);
+    return;
+  }
+
+  // Figure out what's new in the template vs each family
+  // For simplicity, find items/sections/groups that don't exist in ANY family using this template
+  // We'll add missing groups, sections, and items to each family
+
+  openModal({ title:'Sync Template to Active Cases', size:'md', body:`
+    <p style="font-size:.82rem;color:var(--slate);margin-bottom:14px">
+      This will add any <strong>new</strong> tasks, sections, and group headers from your template to active cases that are missing them.
+      Completed and skipped tasks will not be affected. Nothing will be removed.
+    </p>
+    <div style="background:var(--surface);border-radius:var(--radius);padding:10px 14px;margin-bottom:14px">
+      <div style="font-size:.75rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Active cases using this template</div>
+      ${families.map(f => `<div style="font-size:.82rem;color:var(--navy);padding:3px 0;display:flex;align-items:center;gap:6px">
+        <svg width="12" height="12" fill="none" stroke="var(--primary)" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+        ${escHtml(f.decedent_last_name)}, ${escHtml(f.decedent_first_name)}
+        <span style="font-size:.7rem;color:var(--muted)">(${f.status==='long_term'?'Long Term':'Active'})</span>
+      </div>`).join('')}
+    </div>
+    <div id="sync-status" style="font-size:.82rem;color:var(--muted)"></div>`,
+    footer:`<button class="btn btn-ghost" id="sync-cancel">Cancel</button><button class="btn btn-primary" id="sync-confirm">Sync ${families.length} Case${families.length!==1?'s':''}</button>`
+  });
+
+  document.getElementById('sync-cancel')?.addEventListener('click', closeModal);
+  document.getElementById('sync-confirm')?.addEventListener('click', async () => {
+    const statusEl = document.getElementById('sync-status');
+    const confirmBtn = document.getElementById('sync-confirm');
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Syncing…';
+
+    let added = 0;
+
+    for (const family of families) {
+      if (statusEl) statusEl.textContent = `Syncing ${family.decedent_last_name}, ${family.decedent_first_name}…`;
+
+      // Get existing family data
+      const [{ data: fGroups }, { data: fSections }, { data: fItems }] = await Promise.all([
+        db.from('family_groups').select('*').eq('family_id', family.id),
+        db.from('family_sections').select('*').eq('family_id', family.id),
+        db.from('family_items').select('*').eq('family_id', family.id)
+      ]);
+
+      const groupMap = {}; // template group id -> family group id
+      const sectionMap = {}; // template section id -> family section id
+      const itemMap = {}; // template item id -> family item id
+
+      // Map existing groups by template_group_id
+      for (const fg of (fGroups||[])) {
+        if (fg.template_group_id) groupMap[fg.template_group_id] = fg.id;
+      }
+      for (const fs of (fSections||[])) {
+        if (fs.template_section_id) sectionMap[fs.template_section_id] = fs.id;
+      }
+      for (const fi of (fItems||[])) {
+        if (fi.template_item_id) itemMap[fi.template_item_id] = fi.id;
+      }
+
+      // Add missing groups
+      for (const tg of editingGroups) {
+        if (!groupMap[tg.id]) {
+          const { data: ng } = await db.from('family_groups').insert({
+            family_id: family.id, template_group_id: tg.id,
+            title: tg.title, position: tg.position
+          }).select().single();
+          if (ng) { groupMap[tg.id] = ng.id; added++; }
+        }
+      }
+
+      // Add missing sections
+      for (const ts of editingSections) {
+        if (!sectionMap[ts.id]) {
+          const familyGroupId = ts.group_id ? groupMap[ts.group_id] : null;
+          const { data: ns } = await db.from('family_sections').insert({
+            family_id: family.id, template_section_id: ts.id,
+            group_id: familyGroupId, title: ts.title,
+            position: ts.position, surface_on_card: ts.surface_on_card,
+            conditional_logic: ts.conditional_logic
+          }).select().single();
+          if (ns) { sectionMap[ts.id] = ns.id; added++; }
+        }
+      }
+
+      // Add missing items
+      for (const ti of editingItems) {
+        if (!itemMap[ti.id]) {
+          const familyGroupId = ti.group_id ? groupMap[ti.group_id] : null;
+          const familySectionId = ti.section_id ? sectionMap[ti.section_id] : null;
+          // Only add if parent group/section exists in family
+          if (ti.group_id && !familyGroupId) continue;
+          if (ti.section_id && !familySectionId) continue;
+          const { data: ni } = await db.from('family_items').insert({
+            family_id: family.id, template_item_id: ti.id,
+            group_id: familyGroupId, section_id: familySectionId,
+            label: ti.label, helper_text: ti.helper_text,
+            variable_name: ti.variable_name, field_type: ti.field_type,
+            field_options: ti.field_options, is_important: ti.is_important,
+            position: ti.position, item_state: 'incomplete',
+            conditional_logic: ti.conditional_logic,
+            due_date: ti.relative_due_days ? (() => {
+              const d = new Date(); d.setDate(d.getDate()+ti.relative_due_days);
+              return d.toISOString().split('T')[0];
+            })() : null
+          }).select().single();
+          if (ni) { itemMap[ti.id] = ni.id; added++; }
+        }
+      }
+
+      // Add missing sub-items
+      for (const ts of editingSubItems) {
+        const familyItemId = itemMap[ts.item_id];
+        if (!familyItemId) continue;
+        // Check if sub-item already exists
+        const { data: existing } = await db.from('family_sub_items')
+          .select('id').eq('family_id', family.id).eq('template_sub_item_id', ts.id).maybeSingle();
+        if (!existing) {
+          await db.from('family_sub_items').insert({
+            family_id: family.id, template_sub_item_id: ts.id,
+            item_id: familyItemId, label: ts.label,
+            helper_text: ts.helper_text, variable_name: ts.variable_name,
+            field_type: ts.field_type, field_options: ts.field_options,
+            is_important: ts.is_important, position: ts.position,
+            item_state: 'incomplete', conditional_logic: ts.conditional_logic
+          });
+          added++;
+        }
+      }
+    }
+
+    closeModal();
+    toast(added > 0 ? `Synced — ${added} item${added!==1?'s':''} added across ${families.length} case${families.length!==1?'s':''}` : 'Already up to date — no new items to add', 'success');
   });
 }
 
