@@ -15,6 +15,7 @@ import { fetchActivityLog, logItemComplete, logItemUncomplete, logItemSkipped, l
          logContactAdded, logReminderAdded, logReminderDismissed, logParentAutoComplete } from '../activity-log.js';
 
 let currentFamily = null, currentUser = null, pageContainer = null;
+let allInteractions = [], allTaskComments = [];
 let allGroups = [], allSections = [], allItems = [], allSubItems = [], allContacts = [], allReminders = [];
 let showCompleted = {}, showSkipped = {};
 
@@ -40,7 +41,9 @@ async function loadFamily(familyId) {
     db.from('family_items').select('*').eq('family_id', familyId).order('position'),
     db.from('family_sub_items').select('*').eq('family_id', familyId).order('position'),
     db.from('family_contacts').select('*').eq('family_id', familyId).order('position'),
-    db.from('reminders').select('*').eq('family_id', familyId).eq('is_dismissed', false).order('due_date')
+    db.from('reminders').select('*').eq('family_id', familyId).eq('is_dismissed', false).order('due_date'),
+    db.from('case_interactions').select('*').eq('family_id', familyId).order('interacted_at', { ascending: false }),
+    db.from('task_comments').select('*').eq('family_id', familyId).order('created_at')
   ]);
   if (error||!family) throw new Error('Family not found');
   currentFamily = family;
@@ -373,6 +376,7 @@ function renderItem(item, subs, varMap, hidden) {
       </div>
     </div>
     <div class="item-actions">
+      ${(() => { const cc = allTaskComments.filter(c => c.item_id===item.id).length; return cc ? `<button class="btn-icon task-comment-btn" data-comment-item="${item.id}" title="Comments (${cc})" style="color:var(--violet);position:relative"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span style="position:absolute;top:-3px;right:-3px;background:var(--violet);color:white;border-radius:8px;font-size:.55rem;padding:1px 4px;font-weight:700">${cc}</span></button>` : `<button class="btn-icon task-comment-btn" data-comment-item="${item.id}" title="Add comment" style="color:var(--muted)"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></button>`; })()}
       <button class="btn-icon" title="${item.is_important?'Remove important flag':'Mark as important'}" data-flag-item="${item.id}" style="color:${item.is_important?'var(--coral)':'var(--muted)'}">
         <svg width="12" height="12" fill="${item.is_important?'var(--coral)':'none'}" stroke="${item.is_important?'var(--coral)':'currentColor'}" stroke-width="2" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
       </button>
@@ -477,6 +481,14 @@ function bindChecklistEvents(wrap) {
       if (type==='completed') showCompleted[id] = !showCompleted[id];
       if (type==='skipped') showSkipped[id] = !showSkipped[id];
       renderChecklist();
+    });
+  });
+
+  // Task comment buttons
+  wrap.querySelectorAll('.task-comment-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      openTaskCommentModal(btn.dataset.commentItem);
     });
   });
 
@@ -812,6 +824,144 @@ async function changeStatus(newStatus) {
   renderPage(pageContainer || document.getElementById('page-family-detail'));
 }
 
+
+// ── CASE INTERACTIONS ─────────────────────────────────────────
+const INTERACTION_TYPES = [
+  { value: 'call', label: 'Phone Call', icon: '📞' },
+  { value: 'email', label: 'Email', icon: '✉️' },
+  { value: 'text', label: 'Text Message', icon: '💬' },
+  { value: 'in_person', label: 'In Person', icon: '👤' },
+  { value: 'note', label: 'Note', icon: '📝' }
+];
+
+function getInteractionIcon(type) {
+  return INTERACTION_TYPES.find(t => t.value===type)?.icon || '📝';
+}
+function getInteractionLabel(type) {
+  return INTERACTION_TYPES.find(t => t.value===type)?.label || 'Note';
+}
+
+function renderInteractionsList() {
+  if (!allInteractions.length) {
+    return `<div style="padding:12px 14px;font-size:.78rem;color:var(--muted);text-align:center">No interactions logged yet.</div>`;
+  }
+  return allInteractions.map(i => `
+    <div style="padding:10px 14px;border-bottom:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+        <span style="font-size:.85rem">${getInteractionIcon(i.interaction_type)}</span>
+        <span style="font-size:.75rem;font-weight:600;color:var(--navy)">${getInteractionLabel(i.interaction_type)}</span>
+        ${i.contact_name?`<span style="font-size:.72rem;color:var(--muted)">— ${escHtml(i.contact_name)}</span>`:''}
+        <span style="font-size:.7rem;color:var(--muted);margin-left:auto">${formatActivityTime(i.interacted_at)}</span>
+      </div>
+      <div style="font-size:.78rem;color:var(--slate);line-height:1.5;white-space:pre-wrap">${escHtml(i.notes)}</div>
+    </div>`).join('');
+}
+
+function openLogInteractionModal() {
+  const contactOptions = allContacts.map(c =>
+    `<option value="${escHtml(c.name)}">${escHtml(c.name)}${c.relationship?` (${escHtml(c.relationship)})`:''}</option>`
+  ).join('');
+
+  const now = new Date();
+  const localNow = new Date(now.getTime() - now.getTimezoneOffset()*60000).toISOString().slice(0,16);
+
+  openModal({ title: 'Log Interaction', size: 'md', body: `
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Type</label>
+        <select class="form-select" id="int-type">
+          ${INTERACTION_TYPES.map(t => `<option value="${t.value}">${t.icon} ${t.label}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Contact (optional)</label>
+        <select class="form-select" id="int-contact">
+          <option value="">— General / No specific contact —</option>
+          ${contactOptions}
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Date & Time</label>
+      <input class="form-input" id="int-datetime" type="datetime-local" value="${localNow}">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notes *</label>
+      <textarea class="form-textarea" id="int-notes" placeholder="What was discussed, decided, or noted…" style="min-height:100px"></textarea>
+    </div>`,
+    footer: `<button class="btn btn-ghost" id="int-cancel">Cancel</button><button class="btn btn-primary" id="int-save">Log Interaction</button>`
+  });
+
+  document.getElementById('int-cancel')?.addEventListener('click', closeModal);
+  document.getElementById('int-save')?.addEventListener('click', async () => {
+    const notes = document.getElementById('int-notes')?.value.trim();
+    if (!notes) { toast('Notes required', 'error'); return; }
+    const type = document.getElementById('int-type')?.value || 'note';
+    const contact = document.getElementById('int-contact')?.value || null;
+    const datetime = document.getElementById('int-datetime')?.value;
+
+    const { data: interaction, error } = await db.from('case_interactions').insert({
+      family_id: currentFamily.id,
+      user_id: currentUser.id,
+      interaction_type: type,
+      contact_name: contact || null,
+      notes,
+      interacted_at: datetime ? new Date(datetime).toISOString() : new Date().toISOString()
+    }).select().single();
+
+    if (error) { toast('Error: ' + error.message, 'error'); return; }
+    allInteractions.unshift(interaction);
+
+    closeModal();
+    toast('Interaction logged', 'success');
+    // Refresh interactions list in sidebar
+    const list = document.getElementById('interactions-list');
+    if (list) list.innerHTML = renderInteractionsList();
+  });
+}
+
+// ── TASK COMMENTS ─────────────────────────────────────────────
+function openTaskCommentModal(itemId) {
+  const item = allItems.find(i => i.id===itemId);
+  if (!item) return;
+  const comments = allTaskComments.filter(c => c.item_id===itemId);
+
+  openModal({ title: `Comments — ${escHtml(item.label)}`, size: 'md', body: `
+    <div style="max-height:280px;overflow-y:auto;margin-bottom:14px;${comments.length?'':'display:none'}" id="comment-thread">
+      ${comments.map(c => `
+        <div style="padding:8px 0;border-bottom:1px solid var(--border)">
+          <div style="font-size:.7rem;color:var(--muted);margin-bottom:3px">${formatActivityTime(c.created_at)}</div>
+          <div style="font-size:.82rem;color:var(--navy);line-height:1.5;white-space:pre-wrap">${escHtml(c.comment)}</div>
+        </div>`).join('')}
+    </div>
+    ${!comments.length ? `<p style="font-size:.82rem;color:var(--muted);margin-bottom:12px">No comments yet. Add the first one below.</p>` : ''}
+    <div class="form-group">
+      <label class="form-label">Add Comment</label>
+      <textarea class="form-textarea" id="comment-text" placeholder="Type your comment…" style="min-height:80px"></textarea>
+    </div>`,
+    footer: `<button class="btn btn-ghost" id="comment-cancel">Close</button><button class="btn btn-primary" id="comment-save">Add Comment</button>`
+  });
+
+  document.getElementById('comment-cancel')?.addEventListener('click', closeModal);
+  document.getElementById('comment-save')?.addEventListener('click', async () => {
+    const text = document.getElementById('comment-text')?.value.trim();
+    if (!text) { toast('Comment required', 'error'); return; }
+
+    const { data: comment, error } = await db.from('task_comments').insert({
+      family_id: currentFamily.id,
+      item_id: itemId,
+      user_id: currentUser.id,
+      comment: text
+    }).select().single();
+
+    if (error) { toast('Error: ' + error.message, 'error'); return; }
+    allTaskComments.push(comment);
+    closeModal();
+    toast('Comment added', 'success');
+    renderChecklist();
+  });
+}
+
 // ── MARK AS LOST ─────────────────────────────────────────────
 async function markAsLost() {
   openModal({ title:'Mark as Lost', size:'sm', body:`
@@ -1038,6 +1188,7 @@ function renderRemindersList() {
 }
 
 function bindSidebarActions() {
+  document.getElementById('btn-log-interaction')?.addEventListener('click', openLogInteractionModal);
   document.getElementById('btn-add-reminder')?.addEventListener('click', openAddReminderModal);
 
   // Edit contact

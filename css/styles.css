@@ -679,3 +679,10 @@ textarea { resize: vertical; }
 .drag-handle { cursor: grab; pointer-events: all; flex-shrink: 0; }
 .drag-handle:active { cursor: grabbing; }
 .drag-handle * { pointer-events: none; }
+
+/* ─── TASK COMMENTS ──────────────────────────────────────────── */
+.task-comment-thread { background: var(--surface); border-top: 1px solid var(--border); padding: 6px 14px; }
+.task-comment { padding: 4px 0; border-bottom: 1px solid var(--border); }
+.task-comment:last-child { border-bottom: none; }
+.task-comment-time { font-size: .68rem; color: var(--muted); margin-right: 6px; }
+.task-comment-text { font-size: .78rem; color: var(--slate); }
