@@ -626,8 +626,8 @@ textarea { resize: vertical; }
 
 /* ─── CHECKLIST TWO-COLUMN LAYOUT ───────────────────────────── */
 .checklist-grid { display: block; }
-.checklist-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 0; align-items: start; }
-.checklist-col { min-width: 0; }
+.checklist-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 0; align-items: start; border: 2px solid red; }
+.checklist-col { min-width: 0; border: 1px solid blue; }
 @media (max-width: 900px) { .checklist-two-col { grid-template-columns: 1fr; } }
 
 /* ─── HELP DRAWER ────────────────────────────────────────────── */
