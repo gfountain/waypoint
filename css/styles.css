@@ -677,5 +677,6 @@ textarea { resize: vertical; }
 
 /* ─── DRAG SORT ───────────────────────────────────────────────── */
 [data-drag-id] { user-select: none; }
-.drag-handle { cursor: grab; }
+.drag-handle { cursor: grab; pointer-events: all; flex-shrink: 0; }
 .drag-handle:active { cursor: grabbing; }
+.drag-handle * { pointer-events: none; }

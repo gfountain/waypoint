@@ -181,9 +181,9 @@ function renderEditorFullPage(container) {
     </div>`;
 
   // Init drag sort for groups
-  const groupContainer = document.getElementById('tpl-editor-body');
-  if (groupContainer) {
-    initDragSort(groupContainer, '[id^="bgroup-"]', async (newOrder) => {
+  const editorBody = document.getElementById('tpl-editor-body');
+  if (editorBody) {
+    initDragSort(editorBody, '[id^="bgroup-"]', async (newOrder) => {
       for (const { id, position } of newOrder) {
         await db.from('template_groups').update({ position }).eq('id', id);
         const g = editingGroups.find(g => g.id === id);
@@ -192,6 +192,42 @@ function renderEditorFullPage(container) {
       editingGroups.sort((a,b) => a.position - b.position);
     });
   }
+
+  // Init drag sort for sections within each group
+  document.querySelectorAll('[id^="bgroup-"]').forEach(groupEl => {
+    initDragSort(groupEl, '[id^="bsec-"]', async (newOrder) => {
+      for (const { id, position } of newOrder) {
+        await db.from('template_sections').update({ position }).eq('id', id);
+        const s = editingSections.find(s => s.id === id);
+        if (s) s.position = position;
+      }
+      editingSections.sort((a,b) => a.position - b.position);
+    });
+  });
+
+  // Init drag sort for items within each section
+  document.querySelectorAll('[id^="bsec-items-"]').forEach(secEl => {
+    initDragSort(secEl, '[id^="bitem-"]', async (newOrder) => {
+      for (const { id, position } of newOrder) {
+        await db.from('template_items').update({ position }).eq('id', id);
+        const i = editingItems.find(i => i.id === id);
+        if (i) i.position = position;
+      }
+      editingItems.sort((a,b) => a.position - b.position);
+    });
+  });
+
+  // Init drag sort for sub-items within each item
+  document.querySelectorAll('[id^="bsubs-"]').forEach(subEl => {
+    initDragSort(subEl, '[id^="bsub-"]', async (newOrder) => {
+      for (const { id, position } of newOrder) {
+        await db.from('template_sub_items').update({ position }).eq('id', id);
+        const s = editingSubItems.find(s => s.id === id);
+        if (s) s.position = position;
+      }
+      editingSubItems.sort((a,b) => a.position - b.position);
+    });
+  });
 
   document.getElementById('btn-back-tpl')?.addEventListener('click', async () => {
     editorOpen = false;
