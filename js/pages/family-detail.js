@@ -434,7 +434,7 @@ function renderFieldValueDisplay(item) {
   const fv = parseFieldValue(item.field_value);
   if (!fv) return '';
   let display = '';
-  if ('checked' in fv) display = fv.checked ? '✓' : '';
+  if ('checked' in fv) return ''; // checkbox state shown by the state button already
   else if ('long' in fv||'short' in fv) display = `Long: ${fv.long||0} · Short: ${fv.short||0}`;
   else if ('value' in fv && fv.value!==null && fv.value!=='') {
     if (item.field_type==='currency') display = formatCurrency(fv.value);
