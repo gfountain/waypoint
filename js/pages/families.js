@@ -9,6 +9,7 @@ import { logCaseCreated } from '../activity-log.js';
 import { getCurrentUser } from '../auth.js';
 import { refreshNotifications } from '../notifications.js';
 import { invalidateSearchCache } from '../app.js';
+import { reloadDashboard } from './dashboard.js';
 import { autoFormatPhone } from '../utils/helpers.js';
 
 export async function renderFamilies(params, container) {
@@ -34,9 +35,9 @@ export async function openNewFamilyModal() {
     size: 'lg',
     body: `
       <div class="form-section-title">Decedent Information</div>
-      <div class="form-row">
+      <div style="display:grid;grid-template-columns:1fr .7fr 1fr;gap:10px">
         <div class="form-group"><label class="form-label">First Name *</label><input class="form-input" id="nf-first" placeholder="First name"></div>
-        <div class="form-group"><label class="form-label">Middle Name</label><input class="form-input" id="nf-middle" placeholder="Middle name"></div>
+        <div class="form-group"><label class="form-label">Middle</label><input class="form-input" id="nf-middle" placeholder="Middle"></div>
         <div class="form-group"><label class="form-label">Last Name *</label><input class="form-input" id="nf-last" placeholder="Last name"></div>
       </div>
       <div class="form-row">

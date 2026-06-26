@@ -663,3 +663,15 @@ textarea { resize: vertical; }
 /* ─── MISC ───────────────────────────────────────────────────── */
 .confirm-message { font-size: .85rem; color: var(--slate); line-height: 1.5; }
 .detail-name { font-family: var(--font-serif); font-size: 1.35rem; color: white; }
+
+/* ─── CARD ARRANGEMENT DISPLAY ───────────────────────────────── */
+.card-arr-banner { display: flex; align-items: center; gap: 6px; font-size: .75rem; padding: 5px 8px; border-radius: var(--radius); margin-bottom: 6px; }
+.card-arr-today { background: var(--coral-lt); color: var(--coral-dk); border: 1px solid #F0997B; font-weight: 600; }
+.card-arr-tomorrow { background: var(--amber-lt); color: var(--amber-dk); border: 1px solid #EF9F27; font-weight: 500; }
+.card-arr-upcoming { background: var(--primary-lt); color: var(--primary-dk); border: 1px solid var(--primary); }
+.card-arr-prompt { display: flex; align-items: center; gap: 5px; font-size: .72rem; color: var(--muted); font-style: italic; margin-bottom: 6px; }
+
+/* ─── DRAG SORT ───────────────────────────────────────────────── */
+[data-drag-id] { user-select: none; }
+.drag-handle { cursor: grab; }
+.drag-handle:active { cursor: grabbing; }

@@ -7,12 +7,22 @@ export function formatDate(date) {
 export function formatDateTime(date) {
   if (!date) return '—';
   const d = new Date(date);
-  return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})+' at '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+  return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric',timeZone:'America/New_York'})+' at '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZone:'America/New_York'});
+}
+export function formatTimeOnly(date) {
+  if (!date) return '';
+  const d = new Date(date);
+  return d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZone:'America/New_York'});
+}
+export function formatDateOnly(date) {
+  if (!date) return '';
+  const d = new Date(date+(typeof date==='string'&&!date.includes('T')?'T00:00:00':''));
+  return d.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric',timeZone:'America/New_York'});
 }
 export function formatDateTimeShort(date) {
   if (!date) return '—';
   const d = new Date(date);
-  return d.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+  return d.toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'America/New_York'})+' at '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZone:'America/New_York'});
 }
 export function formatActivityTime(ts) {
   if (!ts) return '';
@@ -71,12 +81,17 @@ export function getArrangementStatus(arrangementDate) {
   if (!arrangementDate) return null;
   const arr = new Date(arrangementDate);
   const now = new Date();
-  const today = new Date(); today.setHours(0,0,0,0);
-  const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate()+1);
-  const arrDay = new Date(arr); arrDay.setHours(0,0,0,0);
-  if (arrDay.getTime()===today.getTime()) return 'today';
-  if (arrDay.getTime()===tomorrow.getTime()) return 'tomorrow';
-  if (arr > now && arr <= new Date(today.getTime()+7*86400000)) return 'this-week';
+  // Use Eastern time for date comparison
+  const etNow = new Date(now.toLocaleString('en-US',{timeZone:'America/New_York'}));
+  const etArr = new Date(arr.toLocaleString('en-US',{timeZone:'America/New_York'}));
+  const todayET = new Date(etNow); todayET.setHours(0,0,0,0);
+  const tomorrowET = new Date(todayET); tomorrowET.setDate(tomorrowET.getDate()+1);
+  const arrDayET = new Date(etArr); arrDayET.setHours(0,0,0,0);
+  // Only show if arrangement is in the future
+  if (arr <= now) return null;
+  if (arrDayET.getTime()===todayET.getTime()) return 'today';
+  if (arrDayET.getTime()===tomorrowET.getTime()) return 'tomorrow';
+  if (arrDayET <= new Date(todayET.getTime()+7*86400000)) return 'this-week';
   return null;
 }
 export function todayStr() { return new Date().toISOString().split('T')[0]; }

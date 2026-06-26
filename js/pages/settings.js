@@ -6,6 +6,7 @@ import { escHtml } from '../utils/helpers.js';
 import { labelToVariableName } from '../utils/variable-resolver.js';
 import { getCurrentUser } from '../auth.js';
 import { applyTheme, saveUserTheme } from '../app.js';
+import { initDragSort } from '../utils/drag-sort.js';
 
 let currentUser = null, templates = [];
 let activeTab = 'templates';
@@ -178,6 +179,19 @@ function renderEditorFullPage(container) {
           `<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">No group headers yet</div><div class="empty-desc">Add a group header like PRE-ARRANGEMENT to start building.</div></div>`}
       </div>
     </div>`;
+
+  // Init drag sort for groups
+  const groupContainer = document.getElementById('tpl-editor-body');
+  if (groupContainer) {
+    initDragSort(groupContainer, '[id^="bgroup-"]', async (newOrder) => {
+      for (const { id, position } of newOrder) {
+        await db.from('template_groups').update({ position }).eq('id', id);
+        const g = editingGroups.find(g => g.id === id);
+        if (g) g.position = position;
+      }
+      editingGroups.sort((a,b) => a.position - b.position);
+    });
+  }
 
   document.getElementById('btn-back-tpl')?.addEventListener('click', async () => {
     editorOpen = false;

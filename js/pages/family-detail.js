@@ -76,7 +76,7 @@ function renderPage(container) {
               <svg width="14" height="14" fill="none" stroke="rgba(255,255,255,.7)" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
             </button>
           </div>
-          <div class="detail-dates">${f.date_of_birth?`DOB: ${formatDate(f.date_of_birth)}`:''}${f.date_of_death?`${f.date_of_birth?' · ':''}DOD: ${formatDate(f.date_of_death)}`:''}${f.arrangement_date?` · Arr: ${formatDateTimeShort(f.arrangement_date)}`:''}${f.middle_name?'':''} ${f.contract_number?`· #${escHtml(f.contract_number)}`:''}</div>
+          <div class="detail-dates">${f.date_of_birth?`DOB: ${formatDate(f.date_of_birth)}`:''} ${f.date_of_birth&&f.date_of_death?' · ':''} ${f.date_of_death?`DOD: ${formatDate(f.date_of_death)}`:''} ${f.contract_number?` · #${escHtml(f.contract_number)}`:''}</div>
         </div>
         <div class="detail-header-actions">
           <button class="btn btn-ghost btn-sm" id="btn-active" ${f.status==='active'?'disabled':''} style="color:white;border-color:rgba(255,255,255,.4)">Active</button>
