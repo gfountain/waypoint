@@ -34,7 +34,7 @@ export async function renderFamilyDetail(params, container) {
 }
 
 async function loadFamily(familyId) {
-  const [{ data: family, error }, { data: groups }, { data: sections }, { data: items }, { data: subItems }, { data: contacts }, { data: reminders }] = await Promise.all([
+  const [{ data: family, error }, { data: groups }, { data: sections }, { data: items }, { data: subItems }, { data: contacts }, { data: reminders }, { data: interactions }, { data: taskComments }] = await Promise.all([
     db.from('families').select('*').eq('id', familyId).single(),
     db.from('family_groups').select('*').eq('family_id', familyId).order('position'),
     db.from('family_sections').select('*').eq('family_id', familyId).order('position'),
@@ -53,6 +53,8 @@ async function loadFamily(familyId) {
   allSubItems = subItems||[];
   allContacts = contacts||[];
   allReminders = reminders||[];
+  allInteractions = interactions||[];
+  allTaskComments = taskComments||[];
 }
 
 function renderPage(container) {
