@@ -1158,6 +1158,12 @@ function renderSidebar(prog, primary) {
         </div>
         <button class="btn-icon" data-edit-contact="${c.id}" title="Edit contact"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
       </div>`).join('<hr class="divider" style="margin:4px 0">')}</div></div>`:''}
+    <div class="card info-card" id="interactions-card">
+      <div class="card-header">Case Interactions <button class="btn btn-teal btn-xs" id="btn-log-interaction">+ Log</button></div>
+      <div class="card-body" style="padding:0;max-height:300px;overflow-y:auto" id="interactions-list">
+        ${renderInteractionsList()}
+      </div>
+    </div>
     <div class="card info-card">
       <div class="card-header">Reminders<button class="btn btn-teal btn-xs" id="btn-add-reminder">+ Add</button></div>
       <div class="card-body" id="reminders-list">${renderRemindersList()}</div>
