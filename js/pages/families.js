@@ -8,6 +8,8 @@ import { formatDate, calcDueDate } from '../utils/dates.js';
 import { logCaseCreated } from '../activity-log.js';
 import { getCurrentUser } from '../auth.js';
 import { refreshNotifications } from '../notifications.js';
+import { invalidateSearchCache } from '../app.js';
+import { autoFormatPhone } from '../utils/helpers.js';
 
 export async function renderFamilies(params, container) {
   container.innerHTML = `<div class="loading-state">Loading families…</div>`;
@@ -34,6 +36,7 @@ export async function openNewFamilyModal() {
       <div class="form-section-title">Decedent Information</div>
       <div class="form-row">
         <div class="form-group"><label class="form-label">First Name *</label><input class="form-input" id="nf-first" placeholder="First name"></div>
+        <div class="form-group"><label class="form-label">Middle Name</label><input class="form-input" id="nf-middle" placeholder="Middle name"></div>
         <div class="form-group"><label class="form-label">Last Name *</label><input class="form-input" id="nf-last" placeholder="Last name"></div>
       </div>
       <div class="form-row">
@@ -48,7 +51,7 @@ export async function openNewFamilyModal() {
       <div class="form-section-title">Case Information</div>
       <div class="form-row">
         <div class="form-group"><label class="form-label">Contract Number</label><input class="form-input" id="nf-contract" placeholder="e.g. 24-1082"></div>
-        <div class="form-group"><label class="form-label">Arrangement Date</label><input class="form-input" id="nf-arr-date" type="date"></div>
+        <div class="form-group"><label class="form-label">Arrangement Date &amp; Time</label><input class="form-input" id="nf-arr-date" type="datetime-local"></div>
       </div>
       <div class="form-row">
         <div class="form-group">
@@ -86,6 +89,7 @@ export async function openNewFamilyModal() {
   });
 
   document.getElementById('nf-cancel')?.addEventListener('click', closeModal);
+  document.getElementById('nf-nok-phone')?.addEventListener('input', e => autoFormatPhone(e.target));
   document.getElementById('nf-veteran')?.addEventListener('change', e => { if (e.target.checked) document.getElementById('nf-veteran-spouse').checked = false; });
   document.getElementById('nf-veteran-spouse')?.addEventListener('change', e => { if (e.target.checked) document.getElementById('nf-veteran').checked = false; });
   document.getElementById('nf-status')?.addEventListener('change', e => {
@@ -115,6 +119,7 @@ async function submitNewFamily() {
       template_id: templateId,
       template_name: template?.name||null,
       decedent_first_name: first,
+      middle_name: document.getElementById('nf-middle')?.value||null,
       decedent_last_name: last,
       date_of_birth: document.getElementById('nf-dob')?.value||null,
       date_of_death: document.getElementById('nf-dod')?.value||null,
@@ -141,6 +146,7 @@ async function submitNewFamily() {
 
     await applyTemplate(family.id, templateId, family.created_at);
     await logCaseCreated(family.id, user.id, `${first} ${last}`);
+    invalidateSearchCache();
     refreshNotifications();
     closeModal();
     toast(`Case created for ${last}, ${first}`, 'success');

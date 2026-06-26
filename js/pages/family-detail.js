@@ -3,8 +3,8 @@ import { db } from '../supabase.js';
 import { navigate } from '../router.js';
 import { openModal, closeModal, confirmDialog } from '../components/modal.js';
 import { toast } from '../components/toast.js';
-import { escHtml, calcProgress, parseFieldValue, buildFieldValue, formatPhone, allSubItemsDone, formatCurrency } from '../utils/helpers.js';
-import { formatDate, formatActivityTime, getDueStatus, getDueLabel, calcFutureDueDate } from '../utils/dates.js';
+import { escHtml, calcProgress, parseFieldValue, buildFieldValue, formatPhone, autoFormatPhone, allSubItemsDone, formatCurrency } from '../utils/helpers.js';
+import { formatDate, formatDateTime, formatDateTimeShort, formatActivityTime, getDueStatus, getDueLabel, calcFutureDueDate, toInputDateTime } from '../utils/dates.js';
 import { evaluateLogic, buildVariableMap } from '../utils/conditional-engine.js';
 import { resolveItemText, labelToVariableName } from '../utils/variable-resolver.js';
 import { getCurrentUser } from '../auth.js';
@@ -54,13 +54,13 @@ async function loadFamily(familyId) {
 
 function renderPage(container) {
   const f = currentFamily;
-  const prog = calcProgress(allItems);
+  const prog = calcProgress(allItems, allSubItems);
   const primary = allContacts.find(c => c.is_primary)||allContacts[0];
   const veteranBadge = f.is_veteran ? `<span class="veteran-badge veteran" style="padding:3px 10px;font-size:.8rem">🎖 Veteran</span>` : f.is_veteran_spouse ? `<span class="veteran-badge veteran-spouse" style="padding:3px 10px;font-size:.8rem">⭐ Spouse of Veteran</span>` : '';
   const lostBadge = currentFamily.is_lost ? `<span class="badge badge-lost">⊘ Lost</span>` : '';
   const statusBadgeMap = { active:`<span class="badge badge-active">Active</span>`, long_term:`<span class="badge badge-longterm">Long Term</span>`, completed: currentFamily.is_lost ? lostBadge : `<span class="badge badge-completed">✓ Completed</span>` };
 
-  document.getElementById('topbar-actions').innerHTML = `<button class="btn btn-ghost btn-sm" id="btn-edit-family" style="color:white;border-color:rgba(255,255,255,.4)">Edit Info</button>`;
+  document.getElementById('topbar-actions').innerHTML = '';
   document.getElementById('btn-edit-family')?.addEventListener('click', openEditFamilyModal);
 
   container.innerHTML = `
@@ -71,8 +71,13 @@ function renderPage(container) {
     <div class="detail-header-card">
       <div class="detail-name-row">
         <div>
-          <div class="detail-name">${escHtml(f.decedent_last_name)}, ${escHtml(f.decedent_first_name)}</div>
-          <div class="detail-dates">${f.date_of_birth?`DOB: ${formatDate(f.date_of_birth)} · `:''}${f.date_of_death?`Passed: ${formatDate(f.date_of_death)}`:''}${f.arrangement_date?` · Arr: ${formatDate(f.arrangement_date)}`:''}${f.contract_number?` · #${escHtml(f.contract_number)}`:''}</div>
+          <div class="detail-name-wrap">
+            <div class="detail-name">${escHtml(f.decedent_last_name)}, ${f.middle_name?escHtml(f.middle_name)+' ':''} ${escHtml(f.decedent_first_name)}</div>
+            <button class="detail-edit-btn" id="btn-edit-family" title="Edit family info">
+              <svg width="14" height="14" fill="none" stroke="rgba(255,255,255,.7)" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </button>
+          </div>
+          <div class="detail-dates">${f.date_of_birth?`DOB: ${formatDate(f.date_of_birth)}`:''}${f.date_of_death?`${f.date_of_birth?' · ':''}DOD: ${formatDate(f.date_of_death)}`:''}${f.arrangement_date?` · Arr: ${formatDateTimeShort(f.arrangement_date)}`:''}${f.middle_name?'':''} ${f.contract_number?`· #${escHtml(f.contract_number)}`:''}</div>
         </div>
         <div class="detail-header-actions">
           <button class="btn btn-ghost btn-sm" id="btn-active" ${f.status==='active'?'disabled':''} style="color:white;border-color:rgba(255,255,255,.4)">Active</button>
@@ -101,7 +106,10 @@ function renderPage(container) {
       <div class="info-panel" id="info-panel">${renderSidebar(prog, primary)}</div>
     </div>`;
 
-  document.getElementById('detail-back')?.addEventListener('click', () => navigate('families'));
+  document.getElementById('detail-back')?.addEventListener('click', () => {
+    import('../pages/dashboard.js').then(m => m.invalidateFamilyCache());
+    navigate('families');
+  });
   document.getElementById('btn-active')?.addEventListener('click', () => changeStatus('active'));
   document.getElementById('btn-lost')?.addEventListener('click', () => markAsLost());
   document.getElementById('btn-longterm')?.addEventListener('click', () => changeStatus('long_term'));
@@ -139,7 +147,7 @@ function renderChecklist() {
   }
 
   // Two-column layout
-  html += `<div class="checklist-columns">`;
+  html += `<div class="checklist-grid">`;
 
   for (const group of allGroups) {
     const groupItems = allItems.filter(i => i.group_id===group.id);
@@ -230,7 +238,7 @@ function renderChecklist() {
     html += `</div></div>`;
   }
 
-  html += `</div>`; // end checklist-columns
+  html += `</div>`; // end checklist-grid
   wrap.innerHTML = html;
   bindChecklistEvents(wrap);
 }
@@ -250,8 +258,9 @@ function renderItem(item, subs, varMap, hidden) {
     : '';
 
   let subsHtml = '';
-  if (hasSubs && !isComplete && !isSkipped) {
-    subsHtml = `<div class="sub-items-wrap" id="subs-${item.id}">`;
+  if (hasSubs) {
+    const subsCollapsed = isComplete ? ' sub-collapsed' : '';
+    subsHtml = `<div class="sub-items-wrap${subsCollapsed}" id="subs-${item.id}">`;
     for (const sub of subs) {
       const subVisible = evaluateLogic(sub.conditional_logic, varMap);
       if (!subVisible) continue;
@@ -268,7 +277,7 @@ function renderItem(item, subs, varMap, hidden) {
     <button class="item-state-btn ${isComplete?'state-complete':''} ${isSkipped?'state-skipped':''}" data-state-btn="${item.id}" title="${isComplete?'Click to uncheck':isSkipped?'Click to restore':'Click to complete'}">${stateIcon}</button>
     <div class="item-body">
       <div class="item-label ${isComplete?'label-complete':''} ${isSkipped?'label-skipped':''}">
-        ${escHtml(item.label)}
+        ${escHtml(item.label)}${hasSubs?`<button class="sub-toggle-btn" data-sub-toggle="${item.id}" title="Toggle sub-tasks"><svg class="sub-chevron ${isComplete?'':'open'}" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></button>`:''}
         ${item.is_important?`<span class="item-important-marker"><svg width="9" height="9" fill="var(--coral)" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></span>`:''}
       </div>
       ${item.helper_text?`<div class="item-helper">${helperText}</div>`:''}
@@ -384,6 +393,16 @@ function bindChecklistEvents(wrap) {
       if (type==='completed') showCompleted[id] = !showCompleted[id];
       if (type==='skipped') showSkipped[id] = !showSkipped[id];
       renderChecklist();
+    });
+  });
+
+  // Sub-task toggle (collapse/expand)
+  wrap.querySelectorAll('[data-sub-toggle]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const subWrap = document.getElementById(`subs-${btn.dataset.subToggle}`);
+      const chevron = btn.querySelector('.sub-chevron');
+      if (subWrap) { subWrap.classList.toggle('sub-collapsed'); chevron?.classList.toggle('open'); }
     });
   });
 
@@ -775,6 +794,59 @@ function openNotesEditor() {
   });
 }
 
+
+// ── EDIT CONTACT ──────────────────────────────────────────────
+function openEditContactModal(contactId) {
+  const contact = allContacts.find(c => c.id === contactId);
+  if (!contact) return;
+  openModal({ title:'Edit Contact', size:'md', body:`
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Name *</label><input class="form-input" id="ec-name" value="${escHtml(contact.name)}"></div>
+      <div class="form-group"><label class="form-label">Relationship</label><input class="form-input" id="ec-rel" value="${escHtml(contact.relationship||'')}"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Phone</label><input class="form-input" id="ec-phone" type="tel" value="${escHtml(formatPhone(contact.phone||''))}"></div>
+      <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="ec-email" type="email" value="${escHtml(contact.email||'')}"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Role / Notes</label><input class="form-input" id="ec-notes" value="${escHtml(contact.role_notes||'')}"></div>`,
+    footer:`<button class="btn btn-ghost" id="ec-cancel">Cancel</button><button class="btn btn-primary" id="ec-save">Save</button>`
+  });
+  document.getElementById('ec-cancel')?.addEventListener('click', closeModal);
+  document.getElementById('ec-phone')?.addEventListener('input', e => autoFormatPhone(e.target));
+  document.getElementById('ec-save')?.addEventListener('click', async () => {
+    const name = document.getElementById('ec-name')?.value.trim();
+    if (!name) { toast('Name required', 'error'); return; }
+    const updates = { name, relationship:document.getElementById('ec-rel')?.value||null, phone:document.getElementById('ec-phone')?.value||null, email:document.getElementById('ec-email')?.value||null, role_notes:document.getElementById('ec-notes')?.value||null };
+    await db.from('family_contacts').update(updates).eq('id', contactId);
+    Object.assign(contact, updates);
+    closeModal(); toast('Contact updated', 'success');
+    refreshSidebar();
+  });
+}
+
+async function makePrimaryContact(contactId) {
+  const contact = allContacts.find(c => c.id === contactId);
+  if (!contact) return;
+  // Demote current primary
+  const currentPrimary = allContacts.find(c => c.is_primary);
+  if (currentPrimary) {
+    await db.from('family_contacts').update({ is_primary: false }).eq('id', currentPrimary.id);
+    currentPrimary.is_primary = false;
+  }
+  // Promote new primary
+  await db.from('family_contacts').update({ is_primary: true }).eq('id', contactId);
+  contact.is_primary = true;
+  toast(`${contact.name} set as primary contact`, 'success');
+  refreshSidebar();
+}
+
+function refreshSidebar() {
+  const prog = calcProgress(allItems, allSubItems);
+  const primary = allContacts.find(c => c.is_primary)||allContacts[0];
+  document.getElementById('info-panel').innerHTML = renderSidebar(prog, primary);
+  bindSidebarActions();
+}
+
 // ── EDIT FAMILY MODAL ─────────────────────────────────────────
 function openEditFamilyModal() {
   const f = currentFamily;
@@ -782,6 +854,7 @@ function openEditFamilyModal() {
     <div class="form-section-title">Decedent Information</div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">First Name</label><input class="form-input" id="ef-first" value="${escHtml(f.decedent_first_name)}"></div>
+      <div class="form-group"><label class="form-label">Middle Name</label><input class="form-input" id="ef-middle" value="${escHtml(f.middle_name||'')}"></div>
       <div class="form-group"><label class="form-label">Last Name</label><input class="form-input" id="ef-last" value="${escHtml(f.decedent_last_name)}"></div>
     </div>
     <div class="form-row">
@@ -789,7 +862,7 @@ function openEditFamilyModal() {
       <div class="form-group"><label class="form-label">Date of Death</label><input class="form-input" id="ef-dod" type="date" value="${escHtml(f.date_of_death||'')}"></div>
     </div>
     <div class="form-row">
-      <div class="form-group"><label class="form-label">Arrangement Date</label><input class="form-input" id="ef-arr" type="date" value="${escHtml(f.arrangement_date||'')}"></div>
+      <div class="form-group"><label class="form-label">Arrangement Date &amp; Time</label><input class="form-input" id="ef-arr" type="datetime-local" value="${escHtml(toInputDateTime(f.arrangement_date||''))}"></div>
       <div class="form-group"><label class="form-label">Contract Number</label><input class="form-input" id="ef-contract" value="${escHtml(f.contract_number||'')}"></div>
     </div>
     <div class="form-row">
@@ -805,7 +878,7 @@ function openEditFamilyModal() {
     const first = document.getElementById('ef-first')?.value.trim();
     const last = document.getElementById('ef-last')?.value.trim();
     if (!first||!last) { toast('Name required', 'error'); return; }
-    const updates = { decedent_first_name:first, decedent_last_name:last, date_of_birth:document.getElementById('ef-dob')?.value||null, date_of_death:document.getElementById('ef-dod')?.value||null, arrangement_date:document.getElementById('ef-arr')?.value||null, contract_number:document.getElementById('ef-contract')?.value||null, is_veteran:document.getElementById('ef-veteran')?.checked||false, is_veteran_spouse:document.getElementById('ef-vet-spouse')?.checked||false };
+    const updates = { decedent_first_name:first, middle_name:document.getElementById('ef-middle')?.value||null, decedent_last_name:last, date_of_birth:document.getElementById('ef-dob')?.value||null, date_of_death:document.getElementById('ef-dod')?.value||null, arrangement_date:document.getElementById('ef-arr')?.value||null, contract_number:document.getElementById('ef-contract')?.value||null, is_veteran:document.getElementById('ef-veteran')?.checked||false, is_veteran_spouse:document.getElementById('ef-vet-spouse')?.checked||false };
     await db.from('families').update(updates).eq('id', f.id);
     Object.assign(currentFamily, updates);
     closeModal(); toast('Family info updated', 'success');
@@ -827,10 +900,30 @@ function renderSidebar(prog, primary) {
     <div class="card info-card">
       <div class="card-header">Primary Contact (NOK)</div>
       <div class="card-body">
-        ${primary?`<div class="info-field"><div class="info-key">Name</div><div class="info-val">${escHtml(primary.name)}</div>${primary.relationship?`<div class="info-sub">${escHtml(primary.relationship)}</div>`:''}</div>${primary.phone?`<div class="info-field"><div class="info-key">Phone</div><div class="info-val"><a href="tel:${escHtml(primary.phone)}">${escHtml(formatPhone(primary.phone))}</a></div></div>`:''} ${primary.email?`<div class="info-field"><div class="info-key">Email</div><div class="info-val" style="font-size:.78rem"><a href="mailto:${escHtml(primary.email)}">${escHtml(primary.email)}</a></div></div>`:''} ${primary.role_notes?`<div class="info-field"><div class="info-sub" style="color:var(--coral);font-size:.75rem">${escHtml(primary.role_notes)}</div></div>`:''}`:`<div class="text-muted text-sm">No contact added yet.</div>`}
+        ${primary?`
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div class="info-field" style="flex:1">
+          <div class="info-key">Name</div>
+          <div class="info-val">${escHtml(primary.name)}${primary.relationship?` <span style="color:var(--muted);font-weight:400">— ${escHtml(primary.relationship)}</span>`:''}</div>
+          ${primary.phone?`<div class="info-sub"><a href="tel:${escHtml(primary.phone)}">${escHtml(formatPhone(primary.phone))}</a></div>`:''}
+          ${primary.email?`<div class="info-sub" style="font-size:.75rem"><a href="mailto:${escHtml(primary.email)}">${escHtml(primary.email)}</a></div>`:''}
+          ${primary.role_notes?`<div class="info-sub" style="color:var(--coral);font-size:.75rem">${escHtml(primary.role_notes)}</div>`:''}
+        </div>
+        <button class="btn-icon" data-edit-contact="${primary.id}" title="Edit contact"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+      </div>`:`<div class="text-muted text-sm">No contact added yet.</div>`}
       </div>
     </div>
-    ${others.length?`<div class="card info-card"><div class="card-header">Additional Contacts</div><div class="card-body">${others.map(c=>`<div class="info-field"><div class="info-key">${escHtml(c.name)}${c.relationship?` — ${escHtml(c.relationship)}`:''}</div>${c.phone?`<div class="info-val" style="font-size:.8rem"><a href="tel:${escHtml(c.phone)}">${escHtml(formatPhone(c.phone))}</a></div>`:''} ${c.email?`<div class="info-sub"><a href="mailto:${escHtml(c.email)}">${escHtml(c.email)}</a></div>`:''} ${c.role_notes?`<div class="info-sub" style="color:var(--violet)">${escHtml(c.role_notes)}</div>`:''}</div>`).join('<hr class="divider" style="margin:6px 0">')}</div></div>`:''}
+    ${others.length?`<div class="card info-card"><div class="card-header">Additional Contacts</div><div class="card-body">${others.map(c=>`
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+        <div style="flex:1">
+          <div class="info-val" style="font-size:.82rem;font-weight:500">${escHtml(c.name)}${c.relationship?` <span style="color:var(--muted);font-weight:400">— ${escHtml(c.relationship)}</span>`:''}</div>
+          ${c.phone?`<div class="info-sub"><a href="tel:${escHtml(c.phone)}">${escHtml(formatPhone(c.phone))}</a></div>`:''}
+          ${c.email?`<div class="info-sub" style="font-size:.75rem"><a href="mailto:${escHtml(c.email)}">${escHtml(c.email)}</a></div>`:''}
+          ${c.role_notes?`<div class="info-sub" style="color:var(--violet)">${escHtml(c.role_notes)}</div>`:''}
+          <button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:.68rem" data-make-primary="${c.id}">Make Primary</button>
+        </div>
+        <button class="btn-icon" data-edit-contact="${c.id}" title="Edit contact"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+      </div>`).join('<hr class="divider" style="margin:4px 0">')}</div></div>`:''}
     <div class="card info-card">
       <div class="card-header">Reminders<button class="btn btn-teal btn-xs" id="btn-add-reminder">+ Add</button></div>
       <div class="card-body" id="reminders-list">${renderRemindersList()}</div>
@@ -862,6 +955,16 @@ function renderRemindersList() {
 
 function bindSidebarActions() {
   document.getElementById('btn-add-reminder')?.addEventListener('click', openAddReminderModal);
+
+  // Edit contact
+  document.querySelectorAll('[data-edit-contact]').forEach(btn => {
+    btn.addEventListener('click', () => openEditContactModal(btn.dataset.editContact));
+  });
+
+  // Make primary
+  document.querySelectorAll('[data-make-primary]').forEach(btn => {
+    btn.addEventListener('click', () => makePrimaryContact(btn.dataset.makePrimary));
+  });
   document.getElementById('btn-add-contact')?.addEventListener('click', openAddContactModal);
   document.getElementById('btn-delete-case')?.addEventListener('click', () => {
     confirmDialog({ title:'Delete Case', message:`Permanently delete the case for ${currentFamily.decedent_last_name}, ${currentFamily.decedent_first_name}? All data will be lost and cannot be undone.`, confirmText:'Delete Case', onConfirm: async () => {
@@ -891,7 +994,7 @@ function bindSidebarActions() {
 }
 
 function updateSidebarProgress() {
-  const prog = calcProgress(allItems);
+  const prog = calcProgress(allItems, allSubItems);
   const fill = document.getElementById('prog-fill');
   const label = document.getElementById('prog-label');
   const pct = document.getElementById('prog-pct');
@@ -945,6 +1048,7 @@ function openAddContactModal() {
     footer:`<button class="btn btn-ghost" id="ac-cancel">Cancel</button><button class="btn btn-primary" id="ac-save">Add Contact</button>`
   });
   document.getElementById('ac-cancel')?.addEventListener('click', closeModal);
+  document.getElementById('ac-phone')?.addEventListener('input', e => autoFormatPhone(e.target));
   document.getElementById('ac-save')?.addEventListener('click', async () => {
     const name = document.getElementById('ac-name')?.value.trim();
     if (!name) { toast('Name required', 'error'); return; }
@@ -954,7 +1058,7 @@ function openAddContactModal() {
     allContacts.push(contact);
     await logContactAdded(currentFamily.id, currentUser.id, name);
     closeModal(); toast('Contact added', 'success');
-    const prog = calcProgress(allItems);
+    const prog = calcProgress(allItems, allSubItems);
     const primary = allContacts.find(c => c.is_primary)||allContacts[0];
     document.getElementById('info-panel').innerHTML = renderSidebar(prog, primary);
     bindSidebarActions();

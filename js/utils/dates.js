@@ -9,6 +9,11 @@ export function formatDateTime(date) {
   const d = new Date(date);
   return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})+' at '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
 }
+export function formatDateTimeShort(date) {
+  if (!date) return '—';
+  const d = new Date(date);
+  return d.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+}
 export function formatActivityTime(ts) {
   if (!ts) return '';
   const d = new Date(ts), now = new Date();
@@ -38,26 +43,47 @@ export function calcFutureDueDate(value, unit) {
 }
 export function getDueStatus(dueDateStr) {
   if (!dueDateStr) return null;
-  const due = new Date(dueDateStr+'T00:00:00');
+  const due = new Date(dueDateStr.includes('T') ? dueDateStr : dueDateStr+'T00:00:00');
   const today = new Date(); today.setHours(0,0,0,0);
   const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate()+1);
-  if (due<today) return 'overdue';
+  const nextWeek = new Date(today); nextWeek.setDate(nextWeek.getDate()+7);
+  if (due < today) return 'overdue';
   if (due.getTime()===today.getTime()) return 'today';
   if (due.getTime()===tomorrow.getTime()) return 'tomorrow';
+  if (due <= nextWeek) return 'this-week';
   return 'upcoming';
 }
 export function getDueLabel(dueDateStr) {
   const status = getDueStatus(dueDateStr);
   if (!status) return '';
   if (status==='overdue') {
-    const due = new Date(dueDateStr+'T00:00:00');
+    const due = new Date(dueDateStr.includes('T')?dueDateStr:dueDateStr+'T00:00:00');
     const today = new Date(); today.setHours(0,0,0,0);
     const days = Math.round((today-due)/86400000);
     return days===1?'Overdue 1 day':`Overdue ${days} days`;
   }
   if (status==='today') return 'Due today';
   if (status==='tomorrow') return 'Due tomorrow';
+  if (status==='this-week') return `Due ${formatDate(dueDateStr)}`;
   return `Due ${formatDate(dueDateStr)}`;
+}
+export function getArrangementStatus(arrangementDate) {
+  if (!arrangementDate) return null;
+  const arr = new Date(arrangementDate);
+  const now = new Date();
+  const today = new Date(); today.setHours(0,0,0,0);
+  const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate()+1);
+  const arrDay = new Date(arr); arrDay.setHours(0,0,0,0);
+  if (arrDay.getTime()===today.getTime()) return 'today';
+  if (arrDay.getTime()===tomorrow.getTime()) return 'tomorrow';
+  if (arr > now && arr <= new Date(today.getTime()+7*86400000)) return 'this-week';
+  return null;
 }
 export function todayStr() { return new Date().toISOString().split('T')[0]; }
 export function toInputDate(dateStr) { if (!dateStr) return ''; return dateStr.split('T')[0]; }
+export function toInputDateTime(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  const pad = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}

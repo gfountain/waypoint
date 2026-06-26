@@ -39,43 +39,8 @@ export async function signOut() {
 }
 
 // ── Session warning system ────────────────────────────────────
-export function startSessionWarning(expiresAt) {
-  clearSessionTimers();
-  if (!expiresAt) return;
-
-  const expiryMs = new Date(expiresAt * 1000).getTime();
-  const nowMs = Date.now();
-  const msUntilWarning = expiryMs - nowMs - (SESSION_WARNING_SECONDS * 1000);
-
-  if (msUntilWarning <= 0) {
-    showSessionWarning(expiresAt);
-    return;
-  }
-
-  sessionWarningTimer = setTimeout(() => {
-    showSessionWarning(expiresAt);
-  }, msUntilWarning);
-}
-
-function showSessionWarning(expiresAt) {
-  const warning = document.getElementById('session-warning');
-  const countdownEl = document.getElementById('session-countdown');
-  if (!warning || !countdownEl) return;
-
-  const expiryMs = new Date(expiresAt * 1000).getTime();
-  countdownSeconds = Math.max(0, Math.floor((expiryMs - Date.now()) / 1000));
-  countdownEl.textContent = countdownSeconds;
-  warning.classList.remove('hidden');
-
-  sessionCountdownTimer = setInterval(() => {
-    countdownSeconds--;
-    countdownEl.textContent = Math.max(0, countdownSeconds);
-    if (countdownSeconds <= 0) {
-      clearSessionTimers();
-      warning.classList.add('hidden');
-    }
-  }, 1000);
-}
+export function startSessionWarning() { /* session expiry warnings disabled */ }
+export function clearSessionTimers() {}
 
 export function clearSessionTimers() {
   if (sessionWarningTimer) clearTimeout(sessionWarningTimer);

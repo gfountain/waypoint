@@ -2,7 +2,7 @@
 import { db } from '../supabase.js';
 import { navigate } from '../router.js';
 import { escHtml, calcProgress, getImportantItems, getNextIncompleteItem, formatPhone } from '../utils/helpers.js';
-import { formatDate, getDueStatus, getDueLabel } from '../utils/dates.js';
+import { formatDate, formatDateTimeShort, getDueStatus, getDueLabel, getArrangementStatus } from '../utils/dates.js';
 import { getPriorityItems } from '../notifications.js';
 import { toast } from '../components/toast.js';
 import { logQuickNote } from '../activity-log.js';
@@ -50,10 +50,11 @@ function renderContent(container) {
   const completedCount = closedFamilies.filter(f => !f.is_lost).length;
   const priorityItems = getPriorityItems();
 
+  const arrangementBanner = renderArrangementBanner(allFamilies);
   container.innerHTML = `
-    ${renderStats(activeFamilies, closedFamilies)}
+    ${renderStats(activeFamilies, closedFamilies, allFamilies.length)}
+    ${arrangementBanner}
     ${currentCategory === 'active' && priorityItems.length ? renderPriorityStrip(priorityItems) : ''}
-    ${renderCategoryToggle(activeFamilies.length, closedFamilies.length)}
     ${renderToolbar(activeFamilies, completedCount, lostCount)}
     <div class="grid-label" id="grid-label"></div>
     <div id="families-output"></div>`;
@@ -62,7 +63,7 @@ function renderContent(container) {
   renderFamilies();
 }
 
-function renderStats(active, closed) {
+function renderStats(active, closed, total) {
   const longTerm = active.filter(f => f.status === 'long_term').length;
   const activeOnly = active.filter(f => f.status === 'active').length;
   const lost = closed.filter(f => f.is_lost).length;
@@ -87,6 +88,35 @@ function renderStats(active, closed) {
       <div class="stats-bar-accent" style="background:var(--coral)"></div>
       <div><div class="stats-bar-label">Lost</div><div class="stats-bar-value" style="color:var(--coral-dk)">${lost}</div><div class="stats-bar-sub">not retained</div></div>
     </div>
+    <div class="stats-bar-divider"></div>
+    <div class="stats-bar-item">
+      <div class="stats-bar-accent" style="background:var(--navy)"></div>
+      <div><div class="stats-bar-label">All Cases</div><div class="stats-bar-value">${total}</div><div class="stats-bar-sub">all time</div></div>
+    </div>
+  </div>`;
+}
+
+function renderArrangementBanner(families) {
+  const upcoming = families
+    .filter(f => f.arrangement_date && f.status !== 'completed')
+    .map(f => ({ ...f, arrStatus: getArrangementStatus(f.arrangement_date) }))
+    .filter(f => f.arrStatus)
+    .sort((a, b) => new Date(a.arrangement_date) - new Date(b.arrangement_date));
+
+  if (!upcoming.length) return '';
+
+  const colorMap = { today: 'var(--coral-lt)', tomorrow: 'var(--amber-lt)', 'this-week': 'var(--primary-lt)' };
+  const borderMap = { today: 'var(--coral)', tomorrow: 'var(--amber)', 'this-week': 'var(--primary)' };
+  const labelMap = { today: 'Today', tomorrow: 'Tomorrow', 'this-week': 'This Week' };
+  const textMap = { today: 'var(--coral-dk)', tomorrow: 'var(--amber-dk)', 'this-week': 'var(--primary-dk)' };
+
+  return `<div class="arrangement-banner">
+    ${upcoming.map(f => `
+      <div class="arrangement-banner-item" style="background:${colorMap[f.arrStatus]};border-left:3px solid ${borderMap[f.arrStatus]}" data-family-id="${f.id}">
+        <svg width="13" height="13" fill="none" stroke="${textMap[f.arrStatus]}" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <span style="font-size:.75rem;font-weight:600;color:${textMap[f.arrStatus]}">Arrangement ${labelMap[f.arrStatus]}:</span>
+        <span style="font-size:.75rem;color:${textMap[f.arrStatus]}">${escHtml(f.decedent_last_name)}, ${escHtml(f.decedent_first_name)} — ${formatDateTimeShort(f.arrangement_date)}</span>
+      </div>`).join('')}
   </div>`;
 }
 
@@ -113,10 +143,6 @@ function renderToolbar(activeFamilies, completedCount, lostCount) {
       <option value="active" ${currentCategory==='active'?'selected':''}>Active Cases (${totalActive})</option>
       <option value="closed" ${currentCategory==='closed'?'selected':''}>Closed Cases (${totalClosed})</option>
     </select>
-    <div class="search-wrap">
-      <svg class="search-icon" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      <input class="search-input" id="dash-search" placeholder="Search by name, contact, phone…" value="${escHtml(searchQuery)}">
-    </div>
     <div class="filter-chips" id="filter-chips">${chips}</div>
     <div class="sort-wrap">
       <select class="sort-select" id="dash-sort">
@@ -141,7 +167,6 @@ function bindToolbar() {
     renderContent(document.getElementById('page-dashboard') || document.getElementById('page-families'));
   });
 
-  document.getElementById('dash-search')?.addEventListener('input', e => { searchQuery = e.target.value; renderFamilies(); });
   document.getElementById('dash-sort')?.addEventListener('change', e => { currentSort = e.target.value; renderFamilies(); });
   document.getElementById('sort-dir-btn')?.addEventListener('click', () => {
     sortDir = sortDir==='asc'?'desc':'asc';
@@ -157,6 +182,12 @@ function bindToolbar() {
       chip.classList.add('active');
       renderFamilies();
     });
+  });
+
+  // Arrangement banner clicks
+  document.querySelectorAll('.arrangement-banner-item').forEach(el => {
+    el.addEventListener('click', () => { const id = el.dataset.familyId; if (id) navigate('family-detail', {id}); });
+    el.style.cursor = 'pointer';
   });
 
   // Priority strip clicks
@@ -246,7 +277,7 @@ function renderCard(family) {
     <div class="card-top">
       <div>
         <div class="card-dec-name">${escHtml(family.decedent_last_name)}, ${escHtml(family.decedent_first_name)}</div>
-        <div class="card-dec-dates">${family.date_of_death?`Passed ${formatDate(family.date_of_death)}`:''}</div>
+        <div class="card-dec-dates">${family.date_of_death?`DOD: ${formatDate(family.date_of_death)}`:''}</div>
       </div>
       <div class="card-badges">${statusBadge}${veteranBadge}</div>
     </div>

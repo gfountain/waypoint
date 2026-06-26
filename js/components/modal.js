@@ -16,9 +16,7 @@ export function openModal({ title, subtitle = '', body, footer, size = 'md', onC
             <h2 class="modal-title">${title}</h2>
             ${subtitle ? `<p class="modal-subtitle">${subtitle}</p>` : ''}
           </div>
-          <button class="modal-close-btn" id="modal-close-btn" aria-label="Close">
-            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          </button>
+
         </div>
         <div class="modal-body">${body}</div>
         ${footer ? `<div class="modal-footer">${footer}</div>` : ''}
@@ -32,8 +30,6 @@ export function openModal({ title, subtitle = '', body, footer, size = 'md', onC
     if (e.target.id === 'modal-overlay') closeModal();
   });
 
-  // Close button
-  document.getElementById('modal-close-btn').addEventListener('click', closeModal);
 
   // Focus first input
   setTimeout(() => {

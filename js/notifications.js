@@ -138,107 +138,74 @@ function renderBadge() {
 export function renderPanel() {
   const panel = document.getElementById('notif-panel');
   if (!panel) return;
-
   const total = allDueItems.length + allDueReminders.length;
-
   if (total === 0) {
-    panel.innerHTML = `
-      <div class="notif-panel-header">
-        <span class="notif-panel-title">Reminders</span>
-      </div>
-      <div class="notif-empty">
-        <div style="font-size:1.5rem;margin-bottom:6px">✓</div>
-        Nothing due right now. You're all caught up!
-      </div>`;
+    panel.innerHTML = `<div class="notif-panel-header"><span class="notif-panel-title">Reminders</span></div>
+      <div class="notif-empty"><div style="font-size:1.5rem;margin-bottom:6px">✓</div>Nothing due right now. You're all caught up!</div>`;
     return;
   }
-
-  // Combine and group by family
   const allItems = [
     ...allDueItems.map(i => ({ ...i, _type: 'item' })),
     ...allDueReminders
-  ].sort((a, b) => {
-    // Sort: overdue first, then today, then upcoming; within group by family name
-    const order = { overdue: 0, today: 1, tomorrow: 2, upcoming: 3 };
-    const ao = order[a.dueStatus] ?? 4;
-    const bo = order[b.dueStatus] ?? 4;
-    if (ao !== bo) return ao - bo;
-    return (a.familyName || '').localeCompare(b.familyName || '');
-  });
-
-  // Group by family
-  const groups = {};
+  ];
+  // Group by due status
+  const groups = {
+    overdue: { label: 'Overdue', items: [] },
+    today: { label: 'Due Today', items: [] },
+    tomorrow: { label: 'Due Tomorrow', items: [] },
+    'this-week': { label: 'Due This Week', items: [] },
+    upcoming: { label: 'Upcoming', items: [] }
+  };
   for (const item of allItems) {
-    if (!groups[item.family_id]) groups[item.family_id] = { name: item.familyName, items: [] };
-    groups[item.family_id].items.push(item);
+    const g = groups[item.dueStatus] || groups.upcoming;
+    g.items.push(item);
   }
-
-  const overdueCount = allItems.filter(i => i.dueStatus === 'overdue').length;
-  const todayCount = allItems.filter(i => i.dueStatus === 'today').length;
-
-  let html = `
-    <div class="notif-panel-header">
-      <span class="notif-panel-title">${total} reminder${total !== 1 ? 's' : ''}</span>
-      <span class="notif-dismiss-all" id="notif-dismiss-all">Dismiss all</span>
-    </div>`;
-
-  for (const [familyId, group] of Object.entries(groups)) {
-    html += `
-      <div class="notif-group">
-        <div class="notif-group-label">${escHtml(group.name)}</div>`;
-
+  let html = `<div class="notif-panel-header">
+    <span class="notif-panel-title">${total} reminder${total!==1?'s':''}</span>
+    <span class="notif-dismiss-all" id="notif-dismiss-all">Dismiss all</span>
+  </div>`;
+  for (const [key, group] of Object.entries(groups)) {
+    if (!group.items.length) continue;
+    html += `<div class="notif-group">
+      <div class="notif-group-label">${group.label} (${group.items.length})</div>`;
     for (const item of group.items) {
       const label = item._type === 'reminder' ? item.description : item.label;
-      html += `
-        <div class="notif-item" data-family-id="${familyId}">
-          <div>
-            <div class="notif-item-label">${escHtml(label)}</div>
-          </div>
-          <div class="notif-item-right">
-            <span class="notif-due ${item.dueStatus}">${escHtml(item.dueLabel)}</span>
-            <span class="notif-dismiss-item"
-              data-id="${item.id}"
-              data-type="${item._type}">dismiss</span>
-          </div>
-        </div>`;
+      html += `<div class="notif-item" data-family-id="${item.family_id}">
+        <div>
+          <div class="notif-item-label">${escHtml(label)}</div>
+          <div style="font-size:.7rem;color:var(--muted)">${escHtml(item.familyName)}</div>
+        </div>
+        <div class="notif-item-right">
+          <span class="notif-due ${item.dueStatus}">${escHtml(item.dueLabel)}</span>
+          <span class="notif-dismiss-item" data-id="${item.id}" data-type="${item._type}">dismiss</span>
+        </div>
+      </div>`;
     }
     html += `</div><div class="notif-divider"></div>`;
   }
-
   panel.innerHTML = html;
-
-  // Click on item → navigate to family
   panel.querySelectorAll('.notif-item').forEach(el => {
     el.addEventListener('click', (e) => {
       if (e.target.classList.contains('notif-dismiss-item')) return;
       const familyId = el.dataset.familyId;
-      if (familyId) {
-        panel.classList.add('hidden');
-        navigate('family-detail', { id: familyId });
-      }
+      if (familyId) { panel.classList.add('hidden'); navigate('family-detail', { id: familyId }); }
     });
   });
-
-  // Dismiss individual
   panel.querySelectorAll('.notif-dismiss-item').forEach(el => {
     el.addEventListener('click', async (e) => {
       e.stopPropagation();
-      const id = el.dataset.id;
-      const type = el.dataset.type;
-      await dismissItem(id, type);
+      await dismissItem(el.dataset.id, el.dataset.type);
       el.closest('.notif-item')?.remove();
       await fetchAndRender();
     });
   });
-
-  // Dismiss all
   document.getElementById('notif-dismiss-all')?.addEventListener('click', async () => {
     await dismissAll();
     panel.classList.add('hidden');
   });
 }
 
-// ── Dismiss actions ───────────────────────────────────────────
+
 export async function dismissItem(id, type) {
   if (type === 'reminder') {
     await db.from('reminders')
