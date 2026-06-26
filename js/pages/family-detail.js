@@ -273,8 +273,27 @@ function renderChecklist() {
       itemUnits.push(secHtml);
     }
 
-    // Split item units into two columns at the midpoint
-    const mid = Math.ceil(itemUnits.length / 2);
+    // Split item units into two columns by visual weight (count sub-tasks)
+    // Each unit has a weight; split so both columns have roughly equal weight
+    const unitWeights = [];
+    let allDirectAndSec = [...directItems];
+    const groupSectionsForWeight = allSections.filter(s => s.group_id===group.id);
+    for (const item of directItems) {
+      const subs = allSubItems.filter(s => s.item_id===item.id);
+      unitWeights.push(1 + subs.length);
+    }
+    for (const sec of groupSectionsForWeight) {
+      const secItems = allItems.filter(i => i.section_id===sec.id);
+      const secSubs = allSubItems.filter(s => secItems.some(i => i.id===s.item_id));
+      unitWeights.push(secItems.length + secSubs.length + 1); // +1 for header
+    }
+    const totalWeight = unitWeights.reduce((a,b) => a+b, 0);
+    let cumWeight = 0;
+    let mid = itemUnits.length; // default: all left
+    for (let i = 0; i < unitWeights.length; i++) {
+      cumWeight += unitWeights[i];
+      if (cumWeight >= totalWeight / 2) { mid = i + 1; break; }
+    }
     const leftCol = itemUnits.slice(0, mid).join('');
     const rightCol = itemUnits.slice(mid).join('');
 
