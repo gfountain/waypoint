@@ -262,28 +262,37 @@ function renderFamilies() {
 
 // ── ARRANGEMENT DISPLAY ON CARD ──────────────────────────────
 function renderCardArrangement(family) {
+  const calIcon = `<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
+
   if (!family.arrangement_date) {
     if (family.status === 'active') {
-      return `<div class="card-arr-prompt">
-        <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-        Need to schedule arrangement conference
+      return `<div class="card-arr-box card-arr-none">
+        ${calIcon}
+        <span>Need to Schedule Arrangement Conference</span>
       </div>`;
     }
     return '';
   }
+
   const arr = new Date(family.arrangement_date);
   const now = new Date();
+  // Don't show if arrangement has passed
   if (arr <= now) return '';
-  const etDate = arr.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',timeZone:'America/New_York'});
+
+  const etDate = arr.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',timeZone:'America/New_York'});
   const etTime = arr.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZone:'America/New_York'});
   const status = getArrangementStatus(family.arrangement_date);
-  const colorMap = { today:'card-arr-today', tomorrow:'card-arr-tomorrow', 'this-week':'card-arr-upcoming' };
-  const labelMap = { today:'Today', tomorrow:'Tomorrow', 'this-week':etDate };
-  const cls = colorMap[status]||'card-arr-upcoming';
+  const clsMap = { today:'card-arr-today', tomorrow:'card-arr-tomorrow', 'this-week':'card-arr-upcoming' };
+  const labelMap = { today:'Today', tomorrow:'Tomorrow', 'this-week': etDate };
+  const cls = clsMap[status]||'card-arr-upcoming';
   const label = labelMap[status]||etDate;
-  return `<div class="card-arr-strip ${cls}">
-    <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-    Arrangement Conference — ${label} at ${etTime}
+
+  return `<div class="card-arr-box ${cls}">
+    ${calIcon}
+    <div class="card-arr-box-inner">
+      <div class="card-arr-box-label">Arrangement Conference</div>
+      <div class="card-arr-box-time">${label} at ${etTime}</div>
+    </div>
   </div>`;
 }
 
