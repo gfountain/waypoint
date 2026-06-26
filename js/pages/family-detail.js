@@ -1090,3 +1090,4 @@ async function loadActivityLog() {
     entries.innerHTML = log.map(e => `<div class="activity-entry"><span class="activity-time">${formatActivityTime(e.created_at)}</span><span class="activity-desc">${escHtml(e.description)}</span></div>`).join('');
   } catch { entries.innerHTML = `<div class="text-muted text-sm" style="padding:12px 16px">Failed to load.</div>`; }
 }
+}
